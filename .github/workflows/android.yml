@@ -30,7 +30,7 @@ jobs:
         env:
           ANDROID_UPLOAD_KEYSTORE_B64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_B64 }}
         run: |
-          echo "$ANDROID_UPLOAD_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/upload-keystore.jks"
+          echo "$ANDROID_UPLOAD_KEYSTORE_B64" | base64 --decode > "$GITHUB_WORKSPACE/upload-keystore.jks"
 
       - name: Build APK
         env:
