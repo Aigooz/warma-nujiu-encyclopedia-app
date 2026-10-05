@@ -3,12 +3,17 @@
     <color name="primary">#7C5CFF</color>
     <color name="primary_dark">#5F43E0</color>
     <color name="pink">#FF6B8A</color>
-    <color name="surface">#FFFFFF</color>
-    <color name="background">#0B1020</color>
-    <color name="white">#FFFFFF</color>
-    <color name="white_70">#B3FFFFFF</color>
-    <color name="purple">#7C5CFF</color>
     <color name="mint">#00B894</color>
-    <color name="launcher_background">#7C5CFF</color>
+    <color name="orange">#FF9F43</color>
+    <color name="blue">#4CA6FF</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="background">#F5F7FF</color>
+    <color name="card">#FFFFFF</color>
+    <color name="text_primary">#141830</color>
+    <color name="text_secondary">#656D7D</color>
+    <color name="divider">#E8EAF3</color>
+    <color name="white">#FFFFFF</color>
     <color name="nav_item">#6B7785</color>
+    <color name="purple">#7C5CFF</color>
+    <color name="launcher_background">#7C5CFF</color>
 </resources>

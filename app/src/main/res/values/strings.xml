@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Warma / 怒九百科</string>
+    <string name="loading">正在准备百科数据…</string>
 </resources>
