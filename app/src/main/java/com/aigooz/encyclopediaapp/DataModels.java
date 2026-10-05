@@ -63,7 +63,7 @@ public final class DataModels {
         public List<List<Double>> dm_profile = new ArrayList<>();
         public List<Peak> peaks = new ArrayList<>();
         public List<Meme> memes = new ArrayList<>();
-        public List<String> honors = new ArrayList<>();
+        public List<Honor> honors = new ArrayList<>();
         public double view;
         public double danmaku;
         public double reply;
@@ -104,6 +104,11 @@ public final class DataModels {
     public static class Meme {
         public String content = "";
         public double count;
+    }
+
+    public static class Honor {
+        public int type;
+        public String desc = "";
     }
 
     public static class Quiz {
