@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="primary">#7C5CFF</color>
+    <color name="primary_dark">#5F43E0</color>
+    <color name="pink">#FF6B8A</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="background">#0B1020</color>
+    <color name="white">#FFFFFF</color>
+    <color name="white_70">#B3FFFFFF</color>
+    <color name="purple">#7C5CFF</color>
+    <color name="mint">#00B894</color>
+    <color name="launcher_background">#7C5CFF</color>
+    <color name="nav_item">#6B7785</color>
+</resources>

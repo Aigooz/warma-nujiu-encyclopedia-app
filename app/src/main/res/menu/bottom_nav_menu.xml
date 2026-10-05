@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/nav_warma"
+        android:icon="@drawable/ic_warma"
+        android:title="Warma" />
+    <item
+        android:id="@+id/nav_nujiu"
+        android:icon="@drawable/ic_nujiu"
+        android:title="怒九" />
+</menu>
