@@ -19,7 +19,10 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -35,6 +38,8 @@ public final class DataRepository {
     private final Gson gson = new Gson();
     private final List<Listener> listeners = new ArrayList<>();
     private volatile DataModels.Dataset dataset;
+    private final Map<Site, DataModels.Dataset> datasets = new ConcurrentHashMap<>();
+    private volatile Site selectedSite = Site.WARMA;
 
     private DataRepository() {}
 
@@ -56,24 +61,44 @@ public final class DataRepository {
     }
 
     public DataModels.Dataset current() {
-        return dataset;
+        return datasets.get(selectedSite);
+    }
+
+    public DataModels.Dataset current(Site site) {
+        return datasets.get(site);
     }
 
     public void load(Context context, Site site) {
+        selectedSite = site;
+        DataModels.Dataset cached = datasets.get(site);
+        if (cached != null) {
+            dataset = cached;
+            notifyMain();
+        }
         executor.execute(() -> {
             DataModels.Dataset local = readDataset(context, site, false);
-            if (local != null) {
-                dataset = local;
-                notifyMain();
-                sync(context, site, local);
-            } else {
-                sync(context, site, null);
+            if (local != null && datasets.get(site) == null) {
+                datasets.put(site, local);
+                if (selectedSite == site) {
+                    dataset = local;
+                    notifyMain();
+                }
             }
+            preload(context);
+            sync(context, site, readDataset(context, site, false));
         });
     }
 
     public void refresh(Context context, Site site) {
-        executor.execute(() -> sync(context, site, null));
+        executor.execute(() -> sync(context, site, readDataset(context, site, false)));
+    }
+
+    private void preload(Context context) {
+        for (Site site : Site.values()) {
+            if (datasets.get(site) != null) continue;
+            DataModels.Dataset local = readDataset(context, site, false);
+            if (local != null) datasets.put(site, local);
+        }
     }
 
     private void sync(Context context, Site site, DataModels.Dataset fallback) {
@@ -84,8 +109,11 @@ public final class DataRepository {
             writeText(context, site.quizCacheName, quizText);
             DataModels.Dataset remote = parse(site, dataText, quizText, false);
             if (remote != null && remote.data != null && remote.data.videos != null && !remote.data.videos.isEmpty()) {
+                datasets.put(site, remote);
+                if (selectedSite == site) {
                 dataset = remote;
                 notifyMain();
+                }
             } else if (fallback != null) {
                 dataset = fallback;
                 notifyMain();

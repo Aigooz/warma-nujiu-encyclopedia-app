@@ -92,6 +92,25 @@
                     android:layout_marginTop="6dp"
                     android:textAppearance="@style/TextAppearance.Material3.BodySmall" />
 
+                <ProgressBar
+                    android:id="@+id/updateProgress"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="6dp"
+                    android:layout_marginTop="14dp"
+                    android:indeterminate="false"
+                    android:max="100"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/updateText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:lineSpacingExtra="3dp"
+                    android:text="自动检查 GitHub Release，无需手动跳转浏览器。"
+                    android:textAppearance="@style/TextAppearance.Material3.BodySmall" />
+
                 <Button
                     android:id="@+id/refreshButton"
                     android:layout_width="match_parent"
