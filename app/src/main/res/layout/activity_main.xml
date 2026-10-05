@@ -4,6 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/background"
+    android:fitsSystemWindows="true"
     android:orientation="vertical">
 
     <com.google.android.material.appbar.MaterialToolbar
@@ -24,6 +25,7 @@
         android:id="@+id/bottomNav"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:paddingBottom="0dp"
         android:background="?attr/colorSurface"
         app:itemActiveIndicatorStyle="@style/NavActiveIndicator"
         app:labelVisibilityMode="labeled"

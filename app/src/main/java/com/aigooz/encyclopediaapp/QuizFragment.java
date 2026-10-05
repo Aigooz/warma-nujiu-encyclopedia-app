@@ -142,8 +142,11 @@ public class QuizFragment extends Fragment implements DataRepository.Listener {
         View card = LayoutInflater.from(requireContext()).inflate(R.layout.item_insight, quizArea, false);
         TextView title = card.findViewById(R.id.title);
         TextView body = card.findViewById(R.id.body);
+        float density = getResources().getDisplayMetrics().density;
         title.setText(quiz.category + " · " + difficultyName(quiz.difficulty) + " · " + (index + 1) + "/" + active.size() + " · 得分 " + score);
         body.setText(quiz.q);
+        body.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 17);
+        body.setLineSpacing(density * 2, 1f);
         quizArea.addView(card);
         answered = false;
         LinearLayout optionWrap = new LinearLayout(requireContext());
@@ -155,6 +158,9 @@ public class QuizFragment extends Fragment implements DataRepository.Listener {
             button.setText(quiz.options.get(i));
             button.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
             button.setAllCaps(false);
+            button.setMinimumHeight((int) (density * 54));
+            button.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 15);
+            button.setLineSpacing(density * 1, 1f);
             button.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#F1F1FB")));
             button.setTextColor(Color.parseColor("#141830"));
             int optionIndex = i;

@@ -19,6 +19,7 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.button.MaterialButtonToggleGroup;
 import com.github.mikephil.charting.charts.BarChart;
 import com.github.mikephil.charting.charts.CombinedChart;
 import com.github.mikephil.charting.charts.PieChart;
@@ -68,7 +69,12 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
     private LinearLayout tagAffinityContainer;
     private Spinner similarSource;
     private LinearLayout similarList;
+    private View sectionRanking;
+    private View sectionRhythm;
+    private View sectionTags;
+    private View sectionDeep;
     private String metric = "view";
+    private String section = "ranking";
     private String selectedSimilar = "";
 
     private static final int[] CHART_COLORS = {
@@ -93,6 +99,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         setupCharts();
         setupSimilarSpinner();
         setupMetricChips();
+        setupSections();
         DataRepository.get().addListener(this);
         render();
     }
@@ -111,6 +118,31 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         tagAffinityContainer = view.findViewById(R.id.tagAffinityContainer);
         similarSource = view.findViewById(R.id.similarSource);
         similarList = view.findViewById(R.id.similarList);
+        sectionRanking = view.findViewById(R.id.sectionRanking);
+        sectionRhythm = view.findViewById(R.id.sectionRhythm);
+        sectionTags = view.findViewById(R.id.sectionTags);
+        sectionDeep = view.findViewById(R.id.sectionDeep);
+    }
+
+    private void setupSections() {
+        MaterialButtonToggleGroup toggle = requireView().findViewById(R.id.sectionChips);
+        toggle.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
+            if (!isChecked) return;
+            if (checkedId == R.id.sectionRankButton) section = "ranking";
+            else if (checkedId == R.id.sectionRhythmButton) section = "rhythm";
+            else if (checkedId == R.id.sectionTagButton) section = "tags";
+            else if (checkedId == R.id.sectionDeepButton) section = "deep";
+            showSection();
+        });
+        toggle.check(R.id.sectionRankButton);
+        showSection();
+    }
+
+    private void showSection() {
+        sectionRanking.setVisibility("ranking".equals(section) ? View.VISIBLE : View.GONE);
+        sectionRhythm.setVisibility("rhythm".equals(section) ? View.VISIBLE : View.GONE);
+        sectionTags.setVisibility("tags".equals(section) ? View.VISIBLE : View.GONE);
+        sectionDeep.setVisibility("deep".equals(section) ? View.VISIBLE : View.GONE);
     }
 
     private void setupMetricChips() {
@@ -139,11 +171,14 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         rankChart.getAxisLeft().setDrawGridLines(false);
         rankChart.getAxisLeft().setAxisMinimum(0f);
         rankChart.getAxisLeft().setTextColor(axisColor());
+        rankChart.getAxisLeft().setTextSize(10f);
+        rankChart.setExtraBottomOffset(8f);
         XAxis axis = rankChart.getXAxis();
         axis.setPosition(XAxis.XAxisPosition.BOTTOM);
         axis.setDrawGridLines(false);
         axis.setGranularity(1f);
         axis.setTextColor(axisColor());
+        axis.setTextSize(10f);
     }
 
     private void setupCharts() {
@@ -164,13 +199,16 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         annualChart.getAxisLeft().setAxisMinimum(0f);
         annualChart.getAxisLeft().setDrawGridLines(false);
         annualChart.getAxisLeft().setTextColor(axisColor());
+        annualChart.getAxisLeft().setTextSize(10f);
         annualChart.getXAxis().setPosition(XAxis.XAxisPosition.BOTTOM);
         annualChart.getXAxis().setDrawGridLines(false);
         annualChart.getXAxis().setGranularity(1f);
         annualChart.getXAxis().setTextColor(axisColor());
+        annualChart.getXAxis().setTextSize(10f);
         annualChart.getLegend().setEnabled(true);
         annualChart.getLegend().setHorizontalAlignment(Legend.LegendHorizontalAlignment.CENTER);
         annualChart.getLegend().setTextColor(axisColor());
+        annualChart.getLegend().setTextSize(11f);
         annualChart.setDrawOrder(new CombinedChart.DrawOrder[]{
                 CombinedChart.DrawOrder.BAR, CombinedChart.DrawOrder.LINE
         });
@@ -184,6 +222,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         honorChart.getLegend().setEnabled(true);
         honorChart.getLegend().setHorizontalAlignment(Legend.LegendHorizontalAlignment.CENTER);
         honorChart.getLegend().setTextColor(axisColor());
+        honorChart.getLegend().setTextSize(11f);
     }
 
     private void setupClusterChart() {
@@ -195,13 +234,16 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         clusterChart.getAxisLeft().setDrawGridLines(true);
         clusterChart.getAxisLeft().setGridColor(Color.parseColor("#1F656D7D"));
         clusterChart.getAxisLeft().setTextColor(axisColor());
+        clusterChart.getAxisLeft().setTextSize(10f);
         clusterChart.getXAxis().setPosition(XAxis.XAxisPosition.BOTTOM);
         clusterChart.getXAxis().setDrawGridLines(true);
         clusterChart.getXAxis().setGridColor(Color.parseColor("#1F656D7D"));
         clusterChart.getXAxis().setTextColor(axisColor());
+        clusterChart.getXAxis().setTextSize(10f);
         clusterChart.getLegend().setEnabled(true);
         clusterChart.getLegend().setHorizontalAlignment(Legend.LegendHorizontalAlignment.CENTER);
         clusterChart.getLegend().setTextColor(axisColor());
+        clusterChart.getLegend().setTextSize(11f);
     }
 
     private void setupBarChart(BarChart chart) {
@@ -214,11 +256,13 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         chart.getAxisLeft().setAxisMinimum(0f);
         chart.getAxisLeft().setDrawGridLines(false);
         chart.getAxisLeft().setTextColor(axisColor());
+        chart.getAxisLeft().setTextSize(10f);
         XAxis axis = chart.getXAxis();
         axis.setPosition(XAxis.XAxisPosition.BOTTOM);
         axis.setDrawGridLines(false);
         axis.setGranularity(1f);
         axis.setTextColor(axisColor());
+        axis.setTextSize(10f);
     }
 
     private int axisColor() {

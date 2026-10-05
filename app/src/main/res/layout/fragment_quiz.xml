@@ -46,12 +46,20 @@
                     android:text="分类"
                     android:textAppearance="@style/TextAppearance.Material3.TitleSmall" />
 
-                <com.google.android.material.chip.ChipGroup
-                    android:id="@+id/categoryChips"
+                <HorizontalScrollView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    app:selectionRequired="true"
-                    app:singleSelection="true" />
+                    android:layout_marginTop="4dp"
+                    android:scrollbars="none">
+
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/categoryChips"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:selectionRequired="true"
+                        app:singleLine="true"
+                        app:singleSelection="true" />
+                </HorizontalScrollView>
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -60,12 +68,20 @@
                     android:text="难度"
                     android:textAppearance="@style/TextAppearance.Material3.TitleSmall" />
 
-                <com.google.android.material.chip.ChipGroup
-                    android:id="@+id/difficultyChips"
+                <HorizontalScrollView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    app:selectionRequired="true"
-                    app:singleSelection="true" />
+                    android:layout_marginTop="4dp"
+                    android:scrollbars="none">
+
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/difficultyChips"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:selectionRequired="true"
+                        app:singleLine="true"
+                        app:singleSelection="true" />
+                </HorizontalScrollView>
 
                 <Button
                     android:id="@+id/startButton"
