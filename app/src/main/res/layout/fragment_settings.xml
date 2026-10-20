@@ -139,6 +139,26 @@
                     android:text="检查 APP 更新" />
 
                 <Button
+                    android:id="@+id/retryUpdateButton"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:layout_marginTop="8dp"
+                    android:text="选择下载线路"
+                    android:visibility="gone" />
+
+                <Button
+                    android:id="@+id/browserUpdateButton"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:layout_marginTop="4dp"
+                    android:text="在浏览器下载安装包"
+                    android:visibility="gone" />
+
+                <Button
                     android:id="@+id/webButton"
                     style="@style/Widget.Material3.Button.TextButton"
                     android:layout_width="match_parent"
