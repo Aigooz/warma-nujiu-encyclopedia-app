@@ -14,7 +14,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="我的"
+            android:text="设置"
             android:textAppearance="@style/TextAppearance.Material3.HeadlineSmall" />
 
         <com.google.android.material.card.MaterialCardView
@@ -22,7 +22,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             app:cardBackgroundColor="?attr/colorSurface"
-            app:cardCornerRadius="20dp"
+            app:cardCornerRadius="8dp"
             app:cardElevation="0dp">
 
             <LinearLayout
@@ -61,6 +61,18 @@
                         android:layout_weight="1"
                         android:text="怒九" />
                 </com.google.android.material.button.MaterialButtonToggleGroup>
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp" android:text="外观" android:textAppearance="@style/TextAppearance.Material3.TitleMedium" />
+                <com.google.android.material.button.MaterialButtonToggleGroup
+                    android:id="@+id/themeToggle" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp" app:singleSelection="true" app:selectionRequired="true">
+                    <Button android:id="@+id/themeSystem" style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="系统" />
+                    <Button android:id="@+id/themeLight" style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="浅色" />
+                    <Button android:id="@+id/themeDark" style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="深色" />
+                </com.google.android.material.button.MaterialButtonToggleGroup>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
@@ -69,7 +81,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             app:cardBackgroundColor="?attr/colorSurface"
-            app:cardCornerRadius="20dp"
+            app:cardCornerRadius="8dp"
             app:cardElevation="0dp">
 
             <LinearLayout
@@ -108,7 +120,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
                     android:lineSpacingExtra="3dp"
-                    android:text="自动检查 GitHub Release，无需手动跳转浏览器。"
+                    android:text="APP 版本"
                     android:textAppearance="@style/TextAppearance.Material3.BodySmall" />
 
                 <Button
@@ -142,7 +154,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:lineSpacingExtra="4dp"
-            android:text="这是一个原生 Android 百科客户端。数据来自 Warma / 怒九百科站点，会自动同步最新版本；离线时会使用内置快照。"
+            android:text="Warma / 怒九百科"
             android:textAppearance="@style/TextAppearance.Material3.BodyMedium" />
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

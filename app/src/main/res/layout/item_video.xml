@@ -6,21 +6,30 @@
     android:layout_height="wrap_content"
     android:layout_marginTop="10dp"
     app:cardBackgroundColor="?attr/colorSurface"
-    app:cardCornerRadius="20dp"
+    android:foreground="?attr/selectableItemBackground"
+    app:strokeColor="@color/divider"
+    app:strokeWidth="1dp"
+    app:cardCornerRadius="8dp"
     app:cardElevation="0dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
+        android:baselineAligned="false"
         android:padding="10dp">
 
+        <FrameLayout android:layout_width="104dp" android:layout_height="72dp">
         <com.google.android.material.imageview.ShapeableImageView
             android:id="@+id/cover"
-            android:layout_width="112dp"
-            android:layout_height="70dp"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
             android:scaleType="centerCrop"
-            app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Medium" />
+            app:shapeAppearanceOverlay="@style/ShapeAppearance.Encyclopedia.Small" />
+        <TextView android:id="@+id/duration" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end" android:layout_margin="4dp" android:background="#B3000000"
+            android:paddingHorizontal="4dp" android:paddingVertical="2dp" android:textColor="@color/white" android:textSize="11sp" />
+        </FrameLayout>
 
         <LinearLayout
             android:layout_width="0dp"
@@ -42,6 +51,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
+                android:textColor="@color/text_secondary"
                 android:textAppearance="@style/TextAppearance.Material3.BodySmall" />
 
             <TextView
@@ -49,6 +59,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
+                android:textColor="@color/text_secondary"
                 android:textAppearance="@style/TextAppearance.Material3.BodySmall" />
         </LinearLayout>
     </LinearLayout>

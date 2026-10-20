@@ -18,8 +18,6 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -37,9 +35,13 @@ public final class DataRepository {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final Gson gson = new Gson();
     private final List<Listener> listeners = new ArrayList<>();
-    private volatile DataModels.Dataset dataset;
     private final Map<Site, DataModels.Dataset> datasets = new ConcurrentHashMap<>();
     private volatile Site selectedSite = Site.WARMA;
+    private final Map<Site, Boolean> loading = new ConcurrentHashMap<>();
+    private final Map<Site, String> errors = new ConcurrentHashMap<>();
+
+    public boolean isLoading(Site site) { return loading.getOrDefault(site, false); }
+    public String error(Site site) { return errors.getOrDefault(site, ""); }
 
     private DataRepository() {}
 
@@ -70,33 +72,36 @@ public final class DataRepository {
 
     public void load(Context context, Site site) {
         selectedSite = site;
+        if (isLoading(site)) { notifyMain(); return; }
+        loading.put(site, true);
+        errors.remove(site);
         DataModels.Dataset cached = datasets.get(site);
         if (cached != null) {
-            dataset = cached;
             notifyMain();
         }
         executor.execute(() -> {
-            DataModels.Dataset local = readDataset(context, site, false);
+            DataModels.Dataset local = readDataset(context, site);
             if (local != null && datasets.get(site) == null) {
                 datasets.put(site, local);
                 if (selectedSite == site) {
-                    dataset = local;
                     notifyMain();
                 }
             }
             preload(context);
-            sync(context, site, readDataset(context, site, false));
+            sync(context, site, datasets.get(site));
         });
     }
 
     public void refresh(Context context, Site site) {
-        executor.execute(() -> sync(context, site, readDataset(context, site, false)));
+        if (isLoading(site)) return;
+        loading.put(site, true); errors.remove(site); notifyMain();
+        executor.execute(() -> sync(context, site, readDataset(context, site)));
     }
 
     private void preload(Context context) {
         for (Site site : Site.values()) {
             if (datasets.get(site) != null) continue;
-            DataModels.Dataset local = readDataset(context, site, false);
+            DataModels.Dataset local = readDataset(context, site);
             if (local != null) datasets.put(site, local);
         }
     }
@@ -105,36 +110,33 @@ public final class DataRepository {
         try {
             String dataText = download(site.dataUrl);
             String quizText = download(site.quizUrl);
-            writeText(context, site.dataCacheName, dataText);
-            writeText(context, site.quizCacheName, quizText);
             DataModels.Dataset remote = parse(site, dataText, quizText, false);
             if (remote != null && remote.data != null && remote.data.videos != null && !remote.data.videos.isEmpty()) {
+                // Validate both payloads before replacing the offline snapshot.
+                writeText(context, site.dataCacheName, dataText);
+                writeText(context, site.quizCacheName, quizText);
                 datasets.put(site, remote);
-                if (selectedSite == site) {
-                dataset = remote;
-                notifyMain();
-                }
-            } else if (fallback != null) {
-                dataset = fallback;
-                notifyMain();
-            }
+            } else throw new IllegalStateException("Empty remote dataset");
         } catch (Exception e) {
             Log.w(TAG, "Sync failed", e);
-            if (fallback != null && dataset == null) {
-                dataset = fallback;
-                notifyMain();
-            }
+            errors.put(site, "同步失败，已保留离线数据");
+            if (fallback != null) datasets.putIfAbsent(site, fallback);
+        } finally {
+            loading.put(site, false);
+            notifyMain();
         }
     }
 
-    private DataModels.Dataset readDataset(Context context, Site site, boolean ignoreCache) {
+    private DataModels.Dataset readDataset(Context context, Site site) {
         try {
             String dataText = readCache(context, site.dataCacheName);
             String quizText = readCache(context, site.quizCacheName);
-            boolean cache = dataText != null && quizText != null;
             if (dataText == null) dataText = readAsset(context, site.dataAssetName);
             if (quizText == null) quizText = readAsset(context, site.quizAssetName);
-            return parse(site, dataText, quizText, cache);
+            try { return parse(site, dataText, quizText, true); }
+            catch (Exception invalidCache) {
+                return parse(site, readAsset(context, site.dataAssetName), readAsset(context, site.quizAssetName), true);
+            }
         } catch (Exception e) {
             Log.w(TAG, "Read local failed", e);
             return null;
@@ -143,9 +145,12 @@ public final class DataRepository {
 
     private DataModels.Dataset parse(Site site, String dataText, String quizText, boolean fromCache) {
         DataModels.RawData data = gson.fromJson(stripData(dataText), DataModels.RawData.class);
+        if (data == null || data.videos == null || data.videos.isEmpty()) throw new IllegalStateException("Missing video data");
+        for (DataModels.Video video : data.videos) video.duration_seconds = UiUtils.durationSeconds(video);
         Type quizType = new TypeToken<List<DataModels.Quiz>>() {}.getType();
         List<DataModels.Quiz> quiz = gson.fromJson(stripQuiz(quizText), quizType);
-        if (quiz == null) quiz = Collections.emptyList();
+        if (quiz == null || quiz.isEmpty() || quiz.stream().anyMatch(q -> !QuizSession.valid(q)))
+            throw new IllegalStateException("Invalid quiz data");
         return new DataModels.Dataset(site, data, quiz, fromCache);
     }
 
@@ -170,6 +175,7 @@ public final class DataRepository {
         connection.setReadTimeout(20000);
         connection.setRequestProperty("User-Agent", "Warma-Nujiu-Android/1.1");
         connection.setRequestProperty("Accept", "*/*");
+        try {
         int code = connection.getResponseCode();
         if (code != 200) throw new IllegalStateException("HTTP " + code);
         try (InputStream input = connection.getInputStream();
@@ -179,6 +185,7 @@ public final class DataRepository {
             while ((len = input.read(buffer)) != -1) output.write(buffer, 0, len);
             return new String(output.toByteArray(), StandardCharsets.UTF_8);
         }
+        } finally { connection.disconnect(); }
     }
 
     private String readAsset(Context context, String name) throws Exception {

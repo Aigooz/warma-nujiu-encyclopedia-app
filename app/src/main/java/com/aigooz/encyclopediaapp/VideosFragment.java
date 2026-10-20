@@ -7,6 +7,12 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.TextView;
+import android.widget.Spinner;
+import android.widget.ArrayAdapter;
+import android.widget.AdapterView;
+import android.os.Handler;
+import android.os.Looper;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -28,9 +34,15 @@ public class VideosFragment extends Fragment implements DataRepository.Listener 
     private EditText searchInput;
     private ChipGroup accountChips;
     private ChipGroup sortChips;
-    private String account = "all";
-    private String sort = "date";
-    private String query = "";
+    private TextView resultCount;
+    private TextView emptyState;
+    private TextView filterSummary;
+    private VideoAdapter adapter;
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private final Runnable search = () -> host().notifyFiltersChanged();
+    private boolean binding;
+
+    private MainActivity host() { return (MainActivity) requireActivity(); }
 
     @Nullable
     @Override
@@ -46,12 +58,23 @@ public class VideosFragment extends Fragment implements DataRepository.Listener 
         searchInput = view.findViewById(R.id.searchInput);
         accountChips = view.findViewById(R.id.accountChips);
         sortChips = view.findViewById(R.id.sortChips);
+        resultCount = view.findViewById(R.id.resultCount);
+        emptyState = view.findViewById(R.id.emptyState);
+        filterSummary = view.findViewById(R.id.filterSummary);
+        view.findViewById(R.id.clearFilters).setOnClickListener(v -> { host().filter().reset(); host().notifyFiltersChanged(); });
+        filterSummary.setOnClickListener(v -> host().showFilters());
         videoList.setLayoutManager(new LinearLayoutManager(requireContext()));
+        adapter = new VideoAdapter(requireContext(), new ArrayList<>(), video -> VideoDetailActivity.open(this, video.bvid));
+        videoList.setAdapter(adapter);
         refresh.setOnRefreshListener(() -> DataRepository.get().refresh(requireContext().getApplicationContext(), MainActivity.currentSite()));
         searchInput.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
-            @Override public void afterTextChanged(Editable s) { query = s.toString(); render(); }
+            @Override public void afterTextChanged(Editable s) {
+                if (binding) return;
+                host().filter().query = s.toString();
+                handler.removeCallbacks(search); handler.postDelayed(search, 180);
+            }
         });
         buildAccountChips();
         buildSortChips();
@@ -61,18 +84,22 @@ public class VideosFragment extends Fragment implements DataRepository.Listener 
 
     private void buildAccountChips() {
         accountChips.removeAllViews();
-        addSelectableChip(accountChips, "全部", "all", account, id -> { account = id; render(); });
-        addSelectableChip(accountChips, "主号", "main", account, id -> { account = id; render(); });
-        addSelectableChip(accountChips, "小号", "sub", account, id -> { account = id; render(); });
+        addSelectableChip(accountChips, "全部", "all", host().filter().account, id -> { host().filter().account = id; host().notifyFiltersChanged(); });
+        addSelectableChip(accountChips, "主号", "main", host().filter().account, id -> { host().filter().account = id; host().notifyFiltersChanged(); });
+        addSelectableChip(accountChips, "小号", "sub", host().filter().account, id -> { host().filter().account = id; host().notifyFiltersChanged(); });
+        // Favorites is independent of the single-choice account group.
+        ((android.widget.CompoundButton) requireView().findViewById(R.id.favoritesOnly)).setChecked(host().filter().favoritesOnly);
+        requireView().findViewById(R.id.favoritesOnly).setOnClickListener(v -> {
+            host().filter().favoritesOnly = ((android.widget.CompoundButton) v).isChecked(); host().notifyFiltersChanged();
+        });
     }
 
     private void buildSortChips() {
         sortChips.removeAllViews();
-        addSelectableChip(sortChips, "最新", "date", sort, id -> { sort = id; render(); });
-        addSelectableChip(sortChips, "播放", "view", sort, id -> { sort = id; render(); });
-        addSelectableChip(sortChips, "点赞", "like", sort, id -> { sort = id; render(); });
-        addSelectableChip(sortChips, "弹幕", "danmaku", sort, id -> { sort = id; render(); });
-        addSelectableChip(sortChips, "互动", "interaction", sort, id -> { sort = id; render(); });
+        String[][] options = {{"date", "最新"}, {"oldest", "最早"}, {"view", "播放"}, {"like", "点赞"},
+                {"danmaku", "弹幕"}, {"interaction", "互动率"}, {"lines", "字幕行"}, {"chars", "字符"}};
+        for (String[] option : options) addSelectableChip(sortChips, option[1], option[0], host().filter().sort,
+                id -> { host().filter().sort = id; host().notifyFiltersChanged(); });
     }
 
     private void addSelectableChip(ChipGroup group, String text, String id, String selected, java.util.function.Consumer<String> onSelect) {
@@ -88,7 +115,7 @@ public class VideosFragment extends Fragment implements DataRepository.Listener 
     @Override
     public void onDataChanged() {
         if (isAdded()) {
-            refresh.setRefreshing(false);
+            refresh.setRefreshing(DataRepository.get().isLoading(MainActivity.currentSite()));
             render();
         }
     }
@@ -96,38 +123,29 @@ public class VideosFragment extends Fragment implements DataRepository.Listener 
     @Override
     public void onDestroyView() {
         DataRepository.get().removeListener(this);
+        handler.removeCallbacksAndMessages(null);
         super.onDestroyView();
     }
 
     private void render() {
         DataModels.Dataset dataset = DataRepository.get().current();
-        if (!isAdded() || dataset == null || dataset.site != MainActivity.currentSite() || dataset.data == null) return;
-        List<DataModels.Video> filtered = new ArrayList<>();
-        String q = query.toLowerCase(Locale.ROOT);
-        for (DataModels.Video video : dataset.data.videos) {
-            boolean accountMatch = account.equals("all")
-                    || (account.equals("main") && video.account.contains("主号"))
-                    || (account.equals("sub") && video.account.contains("小号"));
-            String tagText = "";
-            StringBuilder builder = new StringBuilder();
-            for (DataModels.Tag tag : video.tags) builder.append(tag.name).append(' ');
-            tagText = builder.toString().toLowerCase(Locale.ROOT);
-            boolean queryMatch = q.isEmpty()
-                    || video.title.toLowerCase(Locale.ROOT).contains(q)
-                    || video.bvid.toLowerCase(Locale.ROOT).contains(q)
-                    || video.type.toLowerCase(Locale.ROOT).contains(q)
-                    || tagText.contains(q);
-            if (accountMatch && queryMatch) filtered.add(video);
+        if (!isAdded()) return;
+        handler.removeCallbacks(search);
+        binding = true;
+        if (!searchInput.getText().toString().equals(host().filter().query)) searchInput.setText(host().filter().query);
+        binding = false;
+        buildAccountChips(); buildSortChips();
+        filterSummary.setText(host().filter().summary());
+        if (dataset == null || dataset.site != MainActivity.currentSite() || dataset.data == null) {
+            adapter.submit(new ArrayList<>());
+            boolean loading = DataRepository.get().isLoading(MainActivity.currentSite());
+            resultCount.setText(loading ? "正在读取视频库…" : "视频库暂时无法加载");
+            emptyState.setText(loading ? "正在加载数据" : "数据读取失败，请下拉重试"); emptyState.setVisibility(View.VISIBLE); return;
         }
-        filtered.sort((a, b) -> {
-            switch (sort) {
-                case "view": return Double.compare(b.view, a.view);
-                case "like": return Double.compare(b.like, a.like);
-                case "danmaku": return Double.compare(b.danmaku, a.danmaku);
-                case "interaction": return Double.compare(b.interactionRate(), a.interactionRate());
-                default: return b.date.compareTo(a.date);
-            }
-        });
-        videoList.setAdapter(new VideoAdapter(requireContext(), filtered, video -> VideoDetailActivity.open(this, video.bvid)));
+        List<DataModels.Video> filtered = host().selectedVideos(dataset.data);
+        resultCount.setText(filtered.size() + " / " + dataset.data.videos.size() + " 个视频");
+        emptyState.setText("没有符合条件的视频\n可清除筛选后重新浏览");
+        emptyState.setVisibility(filtered.isEmpty() ? View.VISIBLE : View.GONE);
+        adapter.submit(filtered);
     }
 }

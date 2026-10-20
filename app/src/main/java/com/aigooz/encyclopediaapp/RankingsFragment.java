@@ -82,6 +82,19 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
             R.color.primary_dark, R.color.purple
     };
 
+    @Override public void onCreate(@Nullable Bundle state) {
+        super.onCreate(state);
+        if (state != null) {
+            metric = state.getString("metric", "view"); section = state.getString("section", "ranking");
+            selectedSimilar = state.getString("similar", "");
+        }
+    }
+
+    @Override public void onSaveInstanceState(@NonNull Bundle state) {
+        super.onSaveInstanceState(state);
+        state.putString("metric", metric); state.putString("section", section); state.putString("similar", selectedSimilar);
+    }
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
@@ -134,7 +147,8 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
             else if (checkedId == R.id.sectionDeepButton) section = "deep";
             showSection();
         });
-        toggle.check(R.id.sectionRankButton);
+        toggle.check("rhythm".equals(section) ? R.id.sectionRhythmButton : "tags".equals(section)
+                ? R.id.sectionTagButton : "deep".equals(section) ? R.id.sectionDeepButton : R.id.sectionRankButton);
         showSection();
     }
 
@@ -274,8 +288,9 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 DataModels.Dataset dataset = DataRepository.get().current();
-                if (dataset == null || dataset.data == null || position < 0
-                        || position >= dataset.data.videos.size()) return;
+                if (dataset == null || dataset.data == null || position < 0) return;
+                dataset = selectedDataset(dataset);
+                if (position >= dataset.data.videos.size()) return;
                 DataModels.Video selected = sortByDate(dataset.data.videos).get(position);
                 selectedSimilar = selected.bvid;
                 renderSimilarItems(dataset, selected);
@@ -288,7 +303,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
 
     @Override
     public void onDataChanged() {
-        if (isAdded()) render();
+        if (getView() != null) render();
     }
 
     @Override
@@ -299,8 +314,16 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
 
     private void render() {
         DataModels.Dataset dataset = DataRepository.get().current();
-        if (!isAdded() || dataset == null || dataset.site != MainActivity.currentSite()
-                || dataset.data == null) return;
+        if (getView() == null) return;
+        if (dataset == null || dataset.site != MainActivity.currentSite() || dataset.data == null) {
+            ((TextView) requireView().findViewById(R.id.insightSelection)).setText("正在读取分析数据…");
+            DataModels.RawData empty = new DataModels.RawData();
+            dataset = new DataModels.Dataset(MainActivity.currentSite(), empty, java.util.Collections.emptyList(), true);
+        }
+        dataset = selectedDataset(dataset);
+        ((TextView) requireView().findViewById(R.id.insightSelection)).setText(
+                ((MainActivity) requireActivity()).filter().summary() + " · " + dataset.data.videos.size() + " 个视频");
+        requireView().findViewById(R.id.insightSelection).setOnClickListener(v -> ((MainActivity) requireActivity()).showFilters());
         renderRanking(dataset);
         renderInsights(dataset);
         renderAnnual(dataset);
@@ -310,6 +333,20 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         renderTags(dataset);
         renderClusters(dataset);
         renderSimilar(dataset);
+    }
+
+    private DataModels.Dataset selectedDataset(DataModels.Dataset source) {
+        DataModels.RawData data = new DataModels.RawData();
+        data.videos = ((MainActivity) requireActivity()).selectedVideos(source.data);
+        Map<String, Double> counts = new HashMap<>();
+        for (DataModels.Video video : data.videos) for (DataModels.Meme meme : video.memes)
+            counts.merge(meme.content, meme.count, Double::sum);
+        for (Map.Entry<String, Double> entry : counts.entrySet()) {
+            DataModels.Meme meme = new DataModels.Meme(); meme.content = entry.getKey(); meme.count = entry.getValue();
+            data.top_memes.add(meme);
+        }
+        data.top_memes.sort((a, b) -> Double.compare(b.count, a.count));
+        return new DataModels.Dataset(source.site, data, source.quiz, source.fromCache);
     }
 
     private void renderRanking(DataModels.Dataset dataset) {
@@ -328,10 +365,11 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
             labels.add(label);
         }
         BarDataSet set = new BarDataSet(entries, "榜值");
-        set.setColor(Color.parseColor("#7C5CFF"));
+        set.setColor(ContextCompat.getColor(requireContext(), R.color.primary));
         set.setDrawValues(false);
         rankChart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
-        rankChart.getXAxis().setLabelCount(labels.size(), true);
+        rankChart.getXAxis().setLabelCount(Math.max(2, labels.size()), false);
+        if (entries.isEmpty()) { rankChart.clear(); rankChart.setNoDataText("暂无符合条件的视频"); return; }
         rankChart.setData(new BarData(set));
         rankChart.invalidate();
     }
@@ -344,22 +382,31 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         Map<String, Integer> tags = new LinkedHashMap<>();
         Map<Integer, Integer> weekdays = new HashMap<>();
         double interaction = 0;
-        double gap = 0;
+        TreeMap<String, List<LocalDate>> dates = new TreeMap<>();
         for (DataModels.Video video : data.videos) {
             String type = video.type == null || video.type.isEmpty() ? "未标注" : video.type;
             types.put(type, types.getOrDefault(type, 0) + 1);
             accounts.put(video.account, accounts.getOrDefault(video.account, 0) + 1);
             for (DataModels.Tag tag : video.tags) tags.put(tag.name, tags.getOrDefault(tag.name, 0) + 1);
             LocalDate date = parseDate(video);
-            if (date != null) weekdays.merge(date.getDayOfWeek().getValue(), 1, Integer::sum);
+            if (date != null) {
+                weekdays.merge(date.getDayOfWeek().getValue(), 1, Integer::sum);
+                dates.computeIfAbsent(video.account, key -> new ArrayList<>()).add(date);
+            }
             interaction += video.interactionRate();
-            gap += video.gap_days;
         }
         int count = data.videos.size();
-        addInsight(insightContainer, "平均互动率", String.format("%.2f%%", interaction / Math.max(1, count)));
+        addInsight(insightContainer, "平均互动率", count == 0 ? "暂无数据" : String.format(java.util.Locale.CHINA, "%.2f%%", interaction / count));
         addInsight(insightContainer, "字幕覆盖",
                 (int) data.videos.stream().filter(v -> v.sub_lines > 0).count() + " / " + count + " 个视频");
-        addInsight(insightContainer, "平均更新间隔", String.format("%.1f 天", gap / Math.max(1, count)));
+        long gap = 0; int intervals = 0;
+        for (List<LocalDate> accountDates : dates.values()) {
+            java.util.Collections.sort(accountDates);
+            for (int i = 1; i < accountDates.size(); i++) {
+                gap += java.time.temporal.ChronoUnit.DAYS.between(accountDates.get(i - 1), accountDates.get(i)); intervals++;
+            }
+        }
+        addInsight(insightContainer, "平均更新间隔（同账号）", intervals == 0 ? "暂无足够投稿" : String.format(java.util.Locale.CHINA, "%.1f 天", gap / (double) intervals));
         addInsight(insightContainer, "最常见类型", maxEntry(types));
         addInsight(insightContainer, "账号分布", mapToText(accounts));
         addInsight(insightContainer, "高频标签", maxEntry(tags));
@@ -386,8 +433,9 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
             labels.add(String.valueOf(entry.getKey()));
             index++;
         }
+        if (bars.isEmpty()) { annualChart.clear(); annualChart.setNoDataText("暂无投稿数据"); return; }
         BarDataSet barSet = new BarDataSet(bars, "年度投稿");
-        barSet.setColor(Color.parseColor("#7C5CFF"));
+        barSet.setColor(ContextCompat.getColor(requireContext(), R.color.blue));
         barSet.setDrawValues(false);
         LineDataSet lineSet = new LineDataSet(line, "累计视频");
         lineSet.setColor(Color.parseColor("#00B894"));
@@ -500,9 +548,11 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
             Chip chip = new Chip(requireContext());
             chip.setText(entry.getKey() + " " + entry.getValue());
             chip.setCheckable(false);
-            chip.setClickable(false);
+            chip.setOnClickListener(v -> ((MainActivity) requireActivity()).openVideos(null, entry.getKey()));
             float scale = max == min ? 1f : (entry.getValue() - min) * 1f / (max - min);
-            chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11 + scale * 10);
+            chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12 + Math.max(0, scale) * 5);
+            chip.setMaxWidth((int) (280 * getResources().getDisplayMetrics().density));
+            chip.setEllipsize(android.text.TextUtils.TruncateAt.END);
             tagCloud.addView(chip);
         }
         renderTagAffinity(dataset, ranked.subList(0, Math.min(24, ranked.size())));
@@ -536,13 +586,14 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
             double pb = count(tagCounts, parts[1]) * 1.0 / dataset.data.videos.size();
             double pmi = Math.log(pab / Math.max(1e-12, pa * pb)) / Math.log(2);
             addInsight(tagAffinityContainer, parts[0] + " × " + parts[1],
-                    "共现 " + entry.getValue() + " 次 · PMI " + String.format("%.2f", pmi));
+                    "共现 " + entry.getValue() + " 次 · PMI " + String.format(java.util.Locale.CHINA, "%.2f", pmi));
             shown++;
         }
     }
 
     private void renderClusters(DataModels.Dataset dataset) {
         List<DataModels.Video> videos = dataset.data.videos;
+        if (videos.isEmpty()) { clusterChart.clear(); clusterChart.setNoDataText("暂无符合条件的视频"); return; }
         double[][] raw = new double[videos.size()][5];
         for (int i = 0; i < videos.size(); i++) {
             DataModels.Video video = videos.get(i);
@@ -561,7 +612,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         }
 
         ScatterData data = new ScatterData();
-        int[] colors = {Color.parseColor("#7C5CFF"), Color.parseColor("#00B894"),
+        int[] colors = {ContextCompat.getColor(requireContext(), R.color.blue), Color.parseColor("#00B894"),
                 Color.parseColor("#FF6B8A"), Color.parseColor("#FF9F43")};
         int labelIndex = 0;
         for (List<Entry> entries : groups) {
@@ -575,10 +626,11 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
             labelIndex++;
         }
         clusterChart.getXAxis().setGranularity(0.5f);
-        clusterChart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(
-                new String[]{"低", "", "中", "", "高"}));
-        clusterChart.getAxisLeft().setAxisMinimum(-2.2f);
-        clusterChart.getAxisLeft().setAxisMaximum(3.2f);
+        clusterChart.getXAxis().setValueFormatter(new com.github.mikephil.charting.formatter.ValueFormatter() {
+            @Override public String getFormattedValue(float value) { return String.format(java.util.Locale.CHINA, "%.1f", value); }
+        });
+        clusterChart.getAxisLeft().resetAxisMinimum();
+        clusterChart.getAxisLeft().resetAxisMaximum();
         clusterChart.setData(data);
         clusterChart.invalidate();
     }
@@ -596,12 +648,10 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
                 android.R.layout.simple_spinner_item, titles);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         similarSource.setAdapter(adapter);
-        if (titles.isEmpty()) return;
+        if (titles.isEmpty()) { similarList.removeAllViews(); selectedSimilar = ""; return; }
         similarSource.setSelection(selectedPosition, false);
-        if (selectedSimilar.isEmpty()) {
-            selectedSimilar = videos.get(selectedPosition).bvid;
-            renderSimilarItems(dataset, videos.get(selectedPosition));
-        }
+        selectedSimilar = videos.get(selectedPosition).bvid;
+        renderSimilarItems(dataset, videos.get(selectedPosition));
     }
 
     private void renderSimilarItems(DataModels.Dataset dataset, DataModels.Video source) {
@@ -620,7 +670,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
             TextView title = card.findViewById(R.id.title);
             TextView body = card.findViewById(R.id.body);
             title.setText(video.title);
-            body.setText(String.format("相似度 %.0f%% · %s · %s · %s 播放",
+            body.setText(String.format(java.util.Locale.CHINA, "相似度 %.0f%% · %s · %s · %s 播放",
                     scores.get(i) * 100,
                     video.type == null || video.type.isEmpty() ? "未标注" : video.type,
                     video.account_short,

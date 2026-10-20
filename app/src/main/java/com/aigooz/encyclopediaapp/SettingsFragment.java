@@ -25,6 +25,7 @@ import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 import androidx.fragment.app.Fragment;
+import androidx.appcompat.app.AppCompatDelegate;
 
 import com.google.android.material.button.MaterialButtonToggleGroup;
 
@@ -34,8 +35,8 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import org.json.JSONObject;
+import org.json.JSONArray;
 
 public class SettingsFragment extends Fragment implements DataRepository.Listener {
     private MaterialButtonToggleGroup siteToggle;
@@ -64,6 +65,20 @@ public class SettingsFragment extends Fragment implements DataRepository.Listene
         Button refresh = view.findViewById(R.id.refreshButton);
         Button update = view.findViewById(R.id.updateButton);
         Button web = view.findViewById(R.id.webButton);
+        MaterialButtonToggleGroup themeToggle = view.findViewById(R.id.themeToggle);
+        int theme = requireContext().getSharedPreferences("encyclopedia", Context.MODE_PRIVATE)
+                .getInt("theme", AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);
+        themeToggle.check(theme == AppCompatDelegate.MODE_NIGHT_NO ? R.id.themeLight
+                : theme == AppCompatDelegate.MODE_NIGHT_YES ? R.id.themeDark : R.id.themeSystem);
+        themeToggle.addOnButtonCheckedListener((group, id, checked) -> {
+            if (!checked) return;
+            int mode = id == R.id.themeLight ? AppCompatDelegate.MODE_NIGHT_NO
+                    : id == R.id.themeDark ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM;
+            requireContext().getSharedPreferences("encyclopedia", Context.MODE_PRIVATE).edit().putInt("theme", mode).apply();
+            AppCompatDelegate.setDefaultNightMode(mode);
+        });
+        ((TextView) view.findViewById(R.id.aboutText)).setText("Warma / 怒九百科 · " + BuildConfig.VERSION_NAME + "\n数据来源：Warma 百科、怒九百科");
+        updateText.setText("当前 APP 版本：" + BuildConfig.VERSION_NAME);
 
         Site site = MainActivity.currentSite();
         if (site == Site.WARMA) siteToggle.check(R.id.siteWarma); else siteToggle.check(R.id.siteNujiu);
@@ -106,6 +121,7 @@ public class SettingsFragment extends Fragment implements DataRepository.Listene
             }
         };
         ContextCompat.registerReceiver(requireContext(), downloadReceiver, filter, ContextCompat.RECEIVER_EXPORTED);
+        if (downloadId >= 0) pollDownloadProgress();
     }
 
     @Override
@@ -130,14 +146,23 @@ public class SettingsFragment extends Fragment implements DataRepository.Listene
     }
 
     private void render() {
+        Site site = MainActivity.currentSite();
+        siteToggle.check(site == Site.WARMA ? R.id.siteWarma : R.id.siteNujiu);
+        boolean loading = DataRepository.get().isLoading(site);
+        if (getView() != null) {
+            Button refresh = getView().findViewById(R.id.refreshButton);
+            refresh.setEnabled(!loading); refresh.setText(loading ? "正在同步…" : "刷新百科数据");
+        }
         DataModels.Dataset dataset = DataRepository.get().current();
         if (!isAdded() || dataset == null || dataset.site != MainActivity.currentSite() || dataset.data == null) {
             versionText.setText("数据版本：读取中…");
-            dataTime.setText("正在同步最新数据");
+            dataTime.setText(loading ? "正在同步最新数据" : "数据读取失败，请重试");
             return;
         }
         versionText.setText("数据版本：" + dataset.data.docx_version);
-        dataTime.setText("生成时间：" + dataset.data.insights_generated_at + "\n内置快照：" + (dataset.fromCache ? "已启用" : "未使用"));
+        String status = loading ? "同步中 · 当前数据仍可浏览" : !DataRepository.get().error(site).isEmpty()
+                ? DataRepository.get().error(site) : dataset.fromCache ? "本地离线数据" : "已同步最新数据";
+        dataTime.setText("生成时间：" + dataset.data.insights_generated_at + "\n" + status);
     }
 
     private void checkForUpdate() {
@@ -155,11 +180,20 @@ public class SettingsFragment extends Fragment implements DataRepository.Listene
                     String line;
                     while ((line = reader.readLine()) != null) builder.append(line);
                 }
-                String tagName = extractJson(builder.toString(), "tag_name");
-                String downloadUrl = extractFirstApkUrl(builder.toString());
+                JSONObject release = new JSONObject(builder.toString());
+                String tagName = release.optString("tag_name", null);
+                JSONArray assets = release.optJSONArray("assets");
+                String apk = null;
+                if (assets != null) for (int i = 0; i < assets.length(); i++) {
+                    JSONObject asset = assets.getJSONObject(i);
+                    if (asset.optString("name").endsWith(".apk")) { apk = asset.optString("browser_download_url", null); break; }
+                }
+                String downloadUrl = apk;
+                connection.disconnect();
                 String current = BuildConfig.VERSION_NAME;
                 if (getActivity() == null || !isAdded()) return;
                 mainHandler.post(() -> {
+                    if (getView() == null || !isAdded()) return;
                     if (tagName == null || downloadUrl == null) {
                         updateText.setText("暂时无法获取更新，请稍后再试。");
                         Toast.makeText(requireContext(), "暂时无法获取更新", Toast.LENGTH_SHORT).show();
@@ -185,6 +219,7 @@ public class SettingsFragment extends Fragment implements DataRepository.Listene
             } catch (Exception e) {
                 if (getActivity() == null || !isAdded()) return;
                 mainHandler.post(() -> {
+                    if (getView() == null || !isAdded()) return;
                     updateText.setText("检查更新失败，请稍后再试。");
                     Toast.makeText(requireContext(), "检查更新失败，请稍后再试", Toast.LENGTH_SHORT).show();
                 });
@@ -232,9 +267,13 @@ public class SettingsFragment extends Fragment implements DataRepository.Listene
                     int downloaded = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
                     int total = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES));
                     if (status == DownloadManager.STATUS_RUNNING && total > 0) {
-                        updateProgress.setProgress(Math.max(1, downloaded * 100 / total));
+                        updateProgress.setProgress((int) Math.max(1, (long) downloaded * 100 / total));
                     } else if (status == DownloadManager.STATUS_SUCCESSFUL) {
                         updateProgress.setProgress(100);
+                        cursor.close(); installDownload(); return;
+                    } else if (status == DownloadManager.STATUS_FAILED) {
+                        cursor.close(); updateProgress.setVisibility(View.GONE);
+                        updateText.setText("下载失败，请重试。"); return;
                     }
                 }
                 if (cursor != null) cursor.close();
@@ -244,12 +283,15 @@ public class SettingsFragment extends Fragment implements DataRepository.Listene
     }
 
     private void installDownload() {
+        if (downloadId < 0) return;
+        long completedId = downloadId;
+        downloadId = -1;
         updateProgress.setVisibility(View.GONE);
         try {
             Context context = requireContext().getApplicationContext();
             DownloadManager manager = (DownloadManager) context.getSystemService(Context.DOWNLOAD_SERVICE);
             DownloadManager.Query query = new DownloadManager.Query();
-            query.setFilterById(downloadId);
+            query.setFilterById(completedId);
             Cursor cursor = manager.query(query);
             int status = -1;
             String reason = "";
@@ -307,19 +349,4 @@ public class SettingsFragment extends Fragment implements DataRepository.Listene
         }
     }
 
-    private String extractFirstApkUrl(String body) {
-        Pattern pattern = Pattern.compile("\"browser_download_url\"\\s*:\\s*\"([^\"]+\\.apk[^\"]*)\"");
-        Matcher matcher = pattern.matcher(body);
-        return matcher.find() ? matcher.group(1) : null;
-    }
-
-    private String extractJson(String body, String key) {
-        int keyIndex = body.indexOf("\"" + key + "\"");
-        if (keyIndex < 0) return null;
-        int colon = body.indexOf(':', keyIndex);
-        int quoteStart = body.indexOf('"', colon);
-        int quoteEnd = body.indexOf('"', quoteStart + 1);
-        if (quoteStart < 0 || quoteEnd < 0) return null;
-        return body.substring(quoteStart + 1, quoteEnd);
-    }
 }

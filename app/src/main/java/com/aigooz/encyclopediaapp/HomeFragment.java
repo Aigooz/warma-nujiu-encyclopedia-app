@@ -43,6 +43,9 @@ public class HomeFragment extends Fragment implements DataRepository.Listener {
     private ChipGroup typeChips;
     private RecyclerView latestList;
     private ChipGroup memeChips;
+    private TextView dataStatus;
+    private TextView selectionSummary;
+    private TextView latestTitle;
 
     @Nullable
     @Override
@@ -63,6 +66,12 @@ public class HomeFragment extends Fragment implements DataRepository.Listener {
         typeChips = view.findViewById(R.id.typeChips);
         latestList = view.findViewById(R.id.latestList);
         memeChips = view.findViewById(R.id.memeChips);
+        dataStatus = view.findViewById(R.id.dataStatus);
+        selectionSummary = view.findViewById(R.id.selectionSummary);
+        latestTitle = view.findViewById(R.id.latestTitle);
+        view.findViewById(R.id.browseVideos).setOnClickListener(v -> ((MainActivity) requireActivity()).openVideos(null, null));
+        selectionSummary.setOnClickListener(v -> ((MainActivity) requireActivity()).showFilters());
+        error.setOnClickListener(v -> DataRepository.get().load(requireContext().getApplicationContext(), MainActivity.currentSite()));
         refresh.setOnRefreshListener(() -> DataRepository.get().refresh(requireContext().getApplicationContext(), MainActivity.currentSite()));
         latestList.setLayoutManager(new LinearLayoutManager(requireContext()));
         latestList.setNestedScrollingEnabled(false);
@@ -93,7 +102,7 @@ public class HomeFragment extends Fragment implements DataRepository.Listener {
     @Override
     public void onDataChanged() {
         if (isAdded()) {
-            if (refresh != null) refresh.setRefreshing(false);
+            if (refresh != null) refresh.setRefreshing(DataRepository.get().isLoading(MainActivity.currentSite()));
             render();
         }
     }
@@ -107,21 +116,35 @@ public class HomeFragment extends Fragment implements DataRepository.Listener {
     private void render() {
         DataModels.Dataset dataset = DataRepository.get().current();
         if (!isAdded() || dataset == null || dataset.site != MainActivity.currentSite() || dataset.data == null) {
-            if (progress != null) progress.setVisibility(View.VISIBLE);
+            boolean failed = !DataRepository.get().error(MainActivity.currentSite()).isEmpty();
+            if (progress != null) progress.setVisibility(failed ? View.GONE : View.VISIBLE);
             if (content != null) content.setVisibility(View.GONE);
-            if (error != null) error.setVisibility(View.GONE);
+            if (error != null) { error.setVisibility(failed ? View.VISIBLE : View.GONE); ((TextView) error).setText("数据暂时无法加载，点击重试"); }
             return;
         }
         DataModels.RawData data = dataset.data;
         progress.setVisibility(View.GONE);
         error.setVisibility(View.GONE);
         content.setVisibility(View.VISIBLE);
+        MainActivity host = (MainActivity) requireActivity();
+        selectionSummary.setText(host.filter().summary() + "  ·  " + host.selectedVideos(data).size() + " 个视频");
+        String syncError = DataRepository.get().error(dataset.site);
+        dataStatus.setText((DataRepository.get().isLoading(dataset.site) ? "正在同步" : !syncError.isEmpty() ? "离线可用 · 同步失败" : dataset.fromCache ? "离线快照" : "已同步")
+                + " · " + data.docx_version);
         renderProfiles(data);
-        renderStats(data);
+        DataModels.RawData selection = new DataModels.RawData();
+        selection.videos = host.selectedVideos(data);
+        for (DataModels.Video video : selection.videos) {
+            selection.total_view += (long) video.view; selection.total_like += (long) video.like;
+            selection.total_danmaku += (long) video.danmaku; selection.total_coin += (long) video.coin;
+            selection.total_favorite += (long) video.favorite; selection.total_reply += (long) video.reply;
+            selection.total_share += (long) video.share; selection.total_sub_lines += video.sub_lines;
+        }
+        renderStats(selection);
         renderYearly(data);
-        renderTypes(data);
-        renderLatest(data);
-        renderMemes(data);
+        renderTypes(selection);
+        renderLatest(selection);
+        renderMemes(selection);
     }
 
     private void renderProfiles(DataModels.RawData data) {
@@ -136,6 +159,13 @@ public class HomeFragment extends Fragment implements DataRepository.Listener {
             name.setText(profile.name);
             fans.setText(UiUtils.number(requireContext(), profile.fans) + " 粉丝 · Lv." + profile.level);
             sign.setText(profile.sign);
+            card.setOnClickListener(v -> {
+                try { startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse("https://space.bilibili.com/" + profile.mid))); }
+                catch (android.content.ActivityNotFoundException ignored) {
+                    android.widget.Toast.makeText(requireContext(), "没有可用的浏览器", android.widget.Toast.LENGTH_SHORT).show();
+                }
+            });
             String avatar = profile.face == null || profile.face.isEmpty() ? profile.avatar : profile.face;
             if (avatar != null) avatar = avatar.replace("http://", "https://");
             Glide.with(this).load(avatar).circleCrop().placeholder(R.drawable.ic_home).into((com.google.android.material.imageview.ShapeableImageView) card.findViewById(R.id.avatar));
@@ -145,10 +175,10 @@ public class HomeFragment extends Fragment implements DataRepository.Listener {
 
     private void renderStats(DataModels.RawData data) {
         statGrid.removeAllViews();
+        addStatRow(data.videos.size(), "视频总数", data.total_sub_lines, "字幕行数");
         addStatRow(data.total_view, "总播放", data.total_like, "总点赞");
         addStatRow(data.total_danmaku, "总弹幕", data.total_coin, "总投币");
         addStatRow(data.total_favorite, "总收藏", data.total_reply, "总评论");
-        addStatRow(data.total_share, "总分享", data.total_sub_lines, "字幕行");
     }
 
     private void addStatRow(double leftValue, String leftLabel, double rightValue, String rightLabel) {
@@ -170,6 +200,8 @@ public class HomeFragment extends Fragment implements DataRepository.Listener {
         TextView valueText = card.findViewById(R.id.value);
         title.setText(label);
         valueText.setText(UiUtils.number(requireContext(), value));
+        int[] accents = {R.color.primary, R.color.pink, R.color.blue, R.color.orange};
+        valueText.setTextColor(ContextCompat.getColor(requireContext(), accents[(statGrid.getChildCount() - 1) % accents.length]));
         return card;
     }
 
@@ -181,11 +213,12 @@ public class HomeFragment extends Fragment implements DataRepository.Listener {
             entries.add(new BarEntry(index++, entry.getValue().floatValue()));
             labels.add(entry.getKey());
         }
+        if (entries.isEmpty()) { yearlyChart.clear(); yearlyChart.setNoDataText("暂无年度弹幕数据"); return; }
         BarDataSet set = new BarDataSet(entries, "弹幕");
-        set.setColor(Color.parseColor("#7C5CFF"));
+        set.setColor(ContextCompat.getColor(requireContext(), R.color.blue));
         set.setDrawValues(false);
         yearlyChart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
-        yearlyChart.getXAxis().setLabelCount(labels.size(), true);
+        yearlyChart.getXAxis().setLabelCount(Math.min(6, labels.size()), false);
         yearlyChart.setData(new BarData(set));
         yearlyChart.invalidate();
     }
@@ -203,6 +236,7 @@ public class HomeFragment extends Fragment implements DataRepository.Listener {
             Chip chip = new Chip(requireContext());
             chip.setText(entry.getKey() + " · " + entry.getValue());
             chip.setCheckable(false);
+            chip.setOnClickListener(v -> ((MainActivity) requireActivity()).openVideos(entry.getKey(), ""));
             typeChips.addView(chip);
         }
     }
@@ -211,17 +245,30 @@ public class HomeFragment extends Fragment implements DataRepository.Listener {
         List<DataModels.Video> latest = new ArrayList<>();
         for (DataModels.Video video : data.videos) latest.add(video);
         latest.sort((a, b) -> b.date.compareTo(a.date));
+        latestTitle.setText(latest.isEmpty() ? "暂无符合条件的视频" : "最新投稿 · " + latest.get(0).date);
         latestList.setAdapter(new VideoAdapter(requireContext(), latest.subList(0, Math.min(5, latest.size())), video -> VideoDetailActivity.open(this, video.bvid)));
     }
 
     private void renderMemes(DataModels.RawData data) {
         memeChips.removeAllViews();
+        Map<String, Double> counts = new HashMap<>();
+        for (DataModels.Video video : data.videos) for (DataModels.Meme meme : video.memes)
+            counts.merge(meme.content, meme.count, Double::sum);
+        List<Map.Entry<String, Double>> sorted = new ArrayList<>(counts.entrySet());
+        sorted.sort((a, b) -> Double.compare(b.getValue(), a.getValue()));
         int count = 0;
-        for (DataModels.Meme meme : data.top_memes) {
+        for (Map.Entry<String, Double> meme : sorted) {
             if (count++ >= 16) break;
             Chip chip = new Chip(requireContext());
-            chip.setText(meme.content + " · " + UiUtils.number(requireContext(), meme.count));
+            chip.setText(meme.getKey() + " · " + UiUtils.number(requireContext(), meme.getValue()));
             chip.setCheckable(false);
+            chip.setMaxWidth((int) (280 * getResources().getDisplayMetrics().density));
+            chip.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            chip.setOnClickListener(v -> {
+                MainActivity host = (MainActivity) requireActivity();
+                host.filter().type = "";
+                host.openVideos(null, meme.getKey());
+            });
             memeChips.addView(chip);
         }
     }

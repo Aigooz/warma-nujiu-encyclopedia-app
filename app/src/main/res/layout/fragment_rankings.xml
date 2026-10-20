@@ -19,6 +19,9 @@
             android:text="数据洞察"
             android:textAppearance="@style/TextAppearance.Material3.HeadlineSmall" />
 
+        <TextView android:id="@+id/insightSelection" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:minHeight="40dp" android:gravity="center_vertical" android:textColor="@color/text_secondary" android:textSize="12sp" />
+
         <com.google.android.material.button.MaterialButtonToggleGroup
             android:id="@+id/sectionChips"
             android:layout_width="match_parent"
@@ -98,7 +101,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
                 app:cardBackgroundColor="?attr/colorSurface"
-                app:cardCornerRadius="18dp"
+                app:cardCornerRadius="8dp"
                 app:cardElevation="0dp">
 
                 <com.github.mikephil.charting.charts.HorizontalBarChart
@@ -149,7 +152,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 app:cardBackgroundColor="?attr/colorSurface"
-                app:cardCornerRadius="18dp"
+                app:cardCornerRadius="8dp"
                 app:cardElevation="0dp">
 
                 <com.github.mikephil.charting.charts.CombinedChart
@@ -171,7 +174,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 app:cardBackgroundColor="?attr/colorSurface"
-                app:cardCornerRadius="18dp"
+                app:cardCornerRadius="8dp"
                 app:cardElevation="0dp">
 
                 <com.github.mikephil.charting.charts.BarChart
@@ -193,7 +196,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 app:cardBackgroundColor="?attr/colorSurface"
-                app:cardCornerRadius="18dp"
+                app:cardCornerRadius="8dp"
                 app:cardElevation="0dp">
 
                 <com.github.mikephil.charting.charts.BarChart
@@ -215,7 +218,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 app:cardBackgroundColor="?attr/colorSurface"
-                app:cardCornerRadius="18dp"
+                app:cardCornerRadius="8dp"
                 app:cardElevation="0dp">
 
                 <com.github.mikephil.charting.charts.PieChart
@@ -245,7 +248,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 app:cardBackgroundColor="?attr/colorSurface"
-                app:cardCornerRadius="18dp"
+                app:cardCornerRadius="8dp"
                 app:cardElevation="0dp">
 
                 <com.google.android.material.chip.ChipGroup
@@ -289,7 +292,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 app:cardBackgroundColor="?attr/colorSurface"
-                app:cardCornerRadius="18dp"
+                app:cardCornerRadius="8dp"
                 app:cardElevation="0dp">
 
                 <com.github.mikephil.charting.charts.ScatterChart

@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="surface">#111426</color>
-    <color name="background">#0B0E1C</color>
-    <color name="card">#171B31</color>
-    <color name="text_primary">#F3F5FF</color>
-    <color name="text_secondary">#A4ABBD</color>
-    <color name="divider">#282D48</color>
+    <color name="primary">#69CCD0</color>
+    <color name="on_primary">#102E30</color>
+    <color name="error_text">#FF8EAA</color>
+    <color name="surface">#191D20</color>
+    <color name="background">#101416</color>
+    <color name="card">#1B2124</color>
+    <color name="text_primary">#EEF2F3</color>
+    <color name="text_secondary">#ACB8BC</color>
+    <color name="divider">#344045</color>
+    <color name="primary_container">#21464A</color>
 </resources>

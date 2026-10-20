@@ -16,13 +16,25 @@ import java.util.function.Consumer;
 
 public class VideoAdapter extends RecyclerView.Adapter<VideoAdapter.Holder> {
     private final Context context;
-    private final List<DataModels.Video> videos;
+    private List<DataModels.Video> videos;
     private final Consumer<DataModels.Video> listener;
 
     public VideoAdapter(Context context, List<DataModels.Video> videos, Consumer<DataModels.Video> listener) {
         this.context = context;
         this.videos = videos;
         this.listener = listener;
+    }
+
+    public void submit(List<DataModels.Video> updated) {
+        List<DataModels.Video> previous = videos;
+        androidx.recyclerview.widget.DiffUtil.DiffResult diff = androidx.recyclerview.widget.DiffUtil.calculateDiff(new androidx.recyclerview.widget.DiffUtil.Callback() {
+            @Override public int getOldListSize() { return previous.size(); }
+            @Override public int getNewListSize() { return updated.size(); }
+            @Override public boolean areItemsTheSame(int oldPos, int newPos) { return previous.get(oldPos).bvid.equals(updated.get(newPos).bvid); }
+            @Override public boolean areContentsTheSame(int oldPos, int newPos) { return previous.get(oldPos) == updated.get(newPos); }
+        });
+        videos = new java.util.ArrayList<>(updated);
+        diff.dispatchUpdatesTo(this);
     }
 
     @NonNull
@@ -41,6 +53,7 @@ public class VideoAdapter extends RecyclerView.Adapter<VideoAdapter.Holder> {
                 + UiUtils.number(context, video.danmaku) + " 弹幕");
         String cover = video.pic == null ? "" : video.pic.replace("http://", "https://");
         Glide.with(context).load(cover).centerCrop().placeholder(R.drawable.ic_video).into(holder.cover);
+        holder.duration.setText(UiUtils.duration(video));
         holder.itemView.setOnClickListener(v -> listener.accept(video));
     }
 
@@ -60,6 +73,7 @@ public class VideoAdapter extends RecyclerView.Adapter<VideoAdapter.Holder> {
         TextView title;
         TextView meta;
         TextView stats;
+        TextView duration;
         com.google.android.material.imageview.ShapeableImageView cover;
 
         Holder(View itemView) {
@@ -67,6 +81,7 @@ public class VideoAdapter extends RecyclerView.Adapter<VideoAdapter.Holder> {
             title = itemView.findViewById(R.id.title);
             meta = itemView.findViewById(R.id.meta);
             stats = itemView.findViewById(R.id.stats);
+            duration = itemView.findViewById(R.id.duration);
             cover = itemView.findViewById(R.id.cover);
         }
     }

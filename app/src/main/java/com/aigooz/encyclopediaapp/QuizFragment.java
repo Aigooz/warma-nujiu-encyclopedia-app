@@ -1,7 +1,6 @@
 package com.aigooz.encyclopediaapp;
 
 import android.content.res.ColorStateList;
-import android.graphics.Color;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -13,14 +12,17 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.progressindicator.LinearProgressIndicator;
+import com.google.gson.Gson;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,207 +35,157 @@ public class QuizFragment extends Fragment implements DataRepository.Listener {
     private LinearLayout quizArea;
     private String category = "全部";
     private String difficulty = "全部";
-    private List<DataModels.Quiz> active = new ArrayList<>();
-    private int index;
-    private int score;
-    private boolean answered;
+    private QuizSession session = new QuizSession();
 
-    @Nullable
-    @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+    @Override public void onCreate(@Nullable Bundle state) {
+        super.onCreate(state);
+        if (state != null) {
+            category = state.getString("category", "全部");
+            difficulty = state.getString("difficulty", "全部");
+            String json = state.getString("session");
+            if (json != null) session = new Gson().fromJson(json, QuizSession.class);
+        }
+    }
+
+    @Override public void onSaveInstanceState(@NonNull Bundle state) {
+        super.onSaveInstanceState(state);
+        state.putString("category", category); state.putString("difficulty", difficulty);
+        state.putString("session", new Gson().toJson(session));
+    }
+
+    @Nullable @Override public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle state) {
         return inflater.inflate(R.layout.fragment_quiz, container, false);
     }
 
-    @Override
-    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
-        super.onViewCreated(view, savedInstanceState);
+    @Override public void onViewCreated(@NonNull View view, @Nullable Bundle state) {
+        super.onViewCreated(view, state);
         quizCount = view.findViewById(R.id.quizCount);
         categoryChips = view.findViewById(R.id.categoryChips);
         difficultyChips = view.findViewById(R.id.difficultyChips);
         startButton = view.findViewById(R.id.startButton);
         quizArea = view.findViewById(R.id.quizArea);
-        startButton.setOnClickListener(v -> startQuiz());
+        startButton.setOnClickListener(v -> {
+            if (!session.questions.isEmpty() && !session.complete()) {
+                new MaterialAlertDialogBuilder(requireContext()).setTitle("重新开始挑战？")
+                        .setMessage("本轮已答 " + session.choices.size() + " 题，重新开始将清除本轮进度。")
+                        .setNegativeButton("继续本轮", null).setPositiveButton("重新开始", (d, w) -> startQuiz()).show();
+            } else startQuiz();
+        });
         DataRepository.get().addListener(this);
-        renderFilters();
+        renderFilters(); showQuestion();
     }
 
-    @Override
-    public void onDataChanged() {
-        if (isAdded()) renderFilters();
-    }
-
-    @Override
-    public void onDestroyView() {
-        DataRepository.get().removeListener(this);
-        super.onDestroyView();
-    }
+    @Override public void onDataChanged() { if (getView() != null) renderFilters(); }
+    @Override public void onDestroyView() { DataRepository.get().removeListener(this); super.onDestroyView(); }
 
     private List<DataModels.Quiz> filtered() {
         DataModels.Dataset dataset = DataRepository.get().current();
         List<DataModels.Quiz> result = new ArrayList<>();
         if (dataset == null || dataset.site != MainActivity.currentSite() || dataset.quiz == null) return result;
         for (DataModels.Quiz quiz : dataset.quiz) {
-            if ((category.equals("全部") || category.equals(quiz.category))
-                    && (difficulty.equals("全部") || difficulty.equals(quiz.difficulty))) {
-                result.add(quiz);
-            }
+            if (QuizSession.valid(quiz) && (category.equals("全部") || category.equals(quiz.category))
+                    && (difficulty.equals("全部") || difficulty.equals(quiz.difficulty))) result.add(quiz);
         }
         return result;
     }
 
     private void renderFilters() {
-        categoryChips.removeAllViews();
-        difficultyChips.removeAllViews();
+        if (!session.site.isEmpty() && !session.site.equals(MainActivity.currentSite().name())) {
+            session = new QuizSession(); category = difficulty = "全部"; showQuestion();
+        }
+        categoryChips.removeAllViews(); difficultyChips.removeAllViews();
         DataModels.Dataset dataset = DataRepository.get().current();
-        if (dataset == null || dataset.quiz == null || dataset.quiz.isEmpty()) {
-            quizCount.setText("题库加载中…");
-            return;
+        if (dataset == null || dataset.site != MainActivity.currentSite() || dataset.quiz == null || dataset.quiz.isEmpty()) {
+            quizCount.setText(DataRepository.get().isLoading(MainActivity.currentSite()) ? "题库加载中…" : "暂无可用题目");
+            startButton.setEnabled(false); return;
         }
         Map<String, Integer> categories = new LinkedHashMap<>();
-        for (DataModels.Quiz quiz : dataset.quiz) categories.put(quiz.category, categories.getOrDefault(quiz.category, 0) + 1);
+        for (DataModels.Quiz quiz : dataset.quiz) if (QuizSession.valid(quiz)) categories.put(quiz.category, categories.getOrDefault(quiz.category, 0) + 1);
+        if (!category.equals("全部") && !categories.containsKey(category)) category = "全部";
         List<Map.Entry<String, Integer>> sorted = new ArrayList<>(categories.entrySet());
-        sorted.sort((a, b) -> b.getValue() - a.getValue());
-        addChip(categoryChips, "全部", category, id -> { category = id; renderFilters(); });
-        for (Map.Entry<String, Integer> entry : sorted) {
-            addChip(categoryChips, entry.getKey(), category, id -> { category = id; renderFilters(); });
-        }
-        String[][] difficulties = {{"全部", "全部"}, {"easy", "简单"}, {"medium", "普通"}, {"hard", "困难"}};
-        String selectedDifficulty = "全部".equals(difficulty) ? "全部" : difficultyName(difficulty);
-        for (String[] item : difficulties) {
-            addChip(difficultyChips, item[1], selectedDifficulty, id -> {
-                difficulty = id.equals("全部") ? "全部" : item[0];
-                renderFilters();
-            });
-        }
-        quizCount.setText("共 " + filtered().size() + " 道题 · 数据版本 " + dataset.data.docx_version);
+        sorted.sort((a, b) -> Integer.compare(b.getValue(), a.getValue()));
+        addChip(categoryChips, "全部", category, () -> { category = "全部"; renderFilters(); });
+        for (Map.Entry<String, Integer> entry : sorted) addChip(categoryChips, entry.getKey(), category, () -> { category = entry.getKey(); renderFilters(); });
+        String[][] levels = {{"全部", "全部"}, {"easy", "简单"}, {"medium", "普通"}, {"hard", "困难"}};
+        for (String[] level : levels) addChip(difficultyChips, level[1], difficulty.equals("全部") ? "全部" : difficultyName(difficulty),
+                () -> { difficulty = level[0]; renderFilters(); });
+        int count = filtered().size();
+        quizCount.setText("共 " + count + " 道题 · 数据版本 " + dataset.data.docx_version);
+        startButton.setEnabled(count > 0);
+        startButton.setText(!session.questions.isEmpty() && !session.complete() ? "重新开始" : "开始 " + Math.min(10, count) + " 题");
     }
 
-    private void addChip(ChipGroup group, String text, String selected, java.util.function.Consumer<String> onSelect) {
-        Chip chip = new Chip(requireContext());
-        chip.setText(text);
-        chip.setCheckable(true);
-        chip.setId(View.generateViewId());
-        chip.setChecked(text.equals(selected) || (text.equals("全部") && selected.equals("全部")));
-        chip.setOnClickListener(v -> onSelect.accept(text));
-        group.addView(chip);
+    private void addChip(ChipGroup group, String text, String selected, Runnable select) {
+        Chip chip = new Chip(requireContext()); chip.setText(text); chip.setCheckable(true);
+        chip.setId(View.generateViewId()); chip.setChecked(text.equals(selected));
+        chip.setOnClickListener(v -> select.run()); group.addView(chip);
     }
 
     private void startQuiz() {
-        List<DataModels.Quiz> pool = filtered();
-        if (pool.isEmpty()) {
-            android.widget.Toast.makeText(requireContext(), "当前筛选没有题目", android.widget.Toast.LENGTH_SHORT).show();
-            return;
-        }
-        Collections.shuffle(pool);
-        active = new ArrayList<>(pool.subList(0, Math.min(10, pool.size())));
-        index = 0;
-        score = 0;
-        quizArea.setVisibility(View.VISIBLE);
-        showQuestion();
+        session.start(filtered(), MainActivity.currentSite().name()); renderFilters(); showQuestion();
     }
 
     private void showQuestion() {
         quizArea.removeAllViews();
-        if (index >= active.size()) {
-            showResult();
-            return;
-        }
-        DataModels.Quiz quiz = active.get(index);
-        View card = LayoutInflater.from(requireContext()).inflate(R.layout.item_insight, quizArea, false);
-        TextView title = card.findViewById(R.id.title);
-        TextView body = card.findViewById(R.id.body);
-        float density = getResources().getDisplayMetrics().density;
-        title.setText(quiz.category + " · " + difficultyName(quiz.difficulty) + " · " + (index + 1) + "/" + active.size() + " · 得分 " + score);
-        body.setText(quiz.q);
-        body.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 17);
-        body.setLineSpacing(density * 2, 1f);
-        quizArea.addView(card);
-        answered = false;
-        LinearLayout optionWrap = new LinearLayout(requireContext());
-        optionWrap.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams wrapParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        optionWrap.setLayoutParams(wrapParams);
+        quizArea.setVisibility(session.questions.isEmpty() ? View.GONE : View.VISIBLE);
+        if (session.questions.isEmpty()) return;
+        if (session.complete()) { showResult(); return; }
+        DataModels.Quiz quiz = session.questions.get(session.index);
+        LinearProgressIndicator progress = new LinearProgressIndicator(requireContext());
+        progress.setMax(session.questions.size()); progress.setProgress(session.choices.size());
+        quizArea.addView(progress, new LinearLayout.LayoutParams(-1, dp(4)));
+        addInsight(quiz.category + " · " + difficultyName(quiz.difficulty) + " · " + (session.index + 1) + "/" + session.questions.size(), quiz.q);
+        int choice = session.answered() ? session.choices.get(session.index) : -1;
         for (int i = 0; i < quiz.options.size(); i++) {
-            MaterialButton button = new MaterialButton(requireContext());
-            button.setText(quiz.options.get(i));
-            button.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
-            button.setAllCaps(false);
-            button.setMinimumHeight((int) (density * 54));
-            button.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 15);
-            button.setLineSpacing(density * 1, 1f);
-            button.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#F1F1FB")));
-            button.setTextColor(Color.parseColor("#141830"));
-            int optionIndex = i;
-            button.setOnClickListener(v -> answer(optionWrap, button, optionIndex, quiz));
-            optionWrap.addView(button, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-            ((LinearLayout.LayoutParams) button.getLayoutParams()).setMargins(0, (int) (getResources().getDisplayMetrics().density * 8), 0, 0);
-        }
-        quizArea.addView(optionWrap, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-    }
-
-    private void answer(LinearLayout wrap, MaterialButton selected, int choice, DataModels.Quiz quiz) {
-        if (answered) return;
-        answered = true;
-        for (int i = 0; i < wrap.getChildCount(); i++) {
-            MaterialButton button = (MaterialButton) wrap.getChildAt(i);
-            button.setEnabled(false);
-            if (i == quiz.answer) {
-                button.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#00B894")));
-                button.setTextColor(Color.WHITE);
-            } else if (button == selected) {
-                button.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#FF6B8A")));
-                button.setTextColor(Color.WHITE);
+            MaterialButton button = new MaterialButton(requireContext(), null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
+            button.setText(quiz.options.get(i)); button.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+            button.setAllCaps(false); button.setMinHeight(dp(54)); button.setTextSize(15); button.setCornerRadius(dp(8));
+            if (session.answered()) {
+                button.setOnClickListener(v -> {});
+                if (i == quiz.answer || i == choice) {
+                    boolean correct = i == quiz.answer;
+                    button.setIconResource(correct ? R.drawable.ic_check : R.drawable.ic_close);
+                    int color = ContextCompat.getColor(requireContext(), correct ? R.color.primary : R.color.error_text);
+                    button.setStrokeColor(ColorStateList.valueOf(color)); button.setTextColor(color); button.setIconTint(ColorStateList.valueOf(color));
+                    button.setContentDescription(quiz.options.get(i) + (correct ? "，正确答案" : "，你的选择，回答错误"));
+                } else button.setAlpha(0.55f);
             } else {
-                button.setAlpha(0.55f);
+                int option = i;
+                button.setOnClickListener(v -> { if (session.answer(option)) showQuestion(); });
             }
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2); params.topMargin = dp(6);
+            quizArea.addView(button, params);
         }
-        if (choice == quiz.answer) score += quiz.points;
-        TextView explanation = new TextView(requireContext());
-        explanation.setText((choice == quiz.answer ? "回答正确！\n" : "回答错误。\n") + quiz.explanation);
-        explanation.setTextColor(Color.parseColor("#656D7D"));
-        explanation.setTextSize(13);
-        explanation.setPadding(0, (int) (getResources().getDisplayMetrics().density * 12), 0, 0);
-        quizArea.addView(explanation);
-        MaterialButton next = new MaterialButton(requireContext());
-        next.setText(index == active.size() - 1 ? "查看成绩" : "下一题");
-        next.setOnClickListener(v -> {
-            index++;
-            showQuestion();
-        });
-        LinearLayout.LayoutParams nextParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int) (getResources().getDisplayMetrics().density * 48));
-        nextParams.topMargin = (int) (getResources().getDisplayMetrics().density * 14);
-        quizArea.addView(next, nextParams);
+        if (session.answered()) {
+            addInsight(choice == quiz.answer ? "回答正确 · +" + quiz.points + " 分" : "回答错误", quiz.explanation == null ? "" : quiz.explanation);
+            addAction(session.index == session.questions.size() - 1 ? "查看成绩" : "下一题", () -> { session.next(); showQuestion(); renderFilters(); });
+        }
     }
 
     private void showResult() {
-        quizArea.removeAllViews();
-        View card = LayoutInflater.from(requireContext()).inflate(R.layout.item_insight, quizArea, false);
-        TextView title = card.findViewById(R.id.title);
-        TextView body = card.findViewById(R.id.body);
-        int percent = score * 100 / Math.max(1, active.size());
-        title.setText("挑战完成 · " + score + "/" + active.size());
-        body.setText("正确率 " + percent + "%\n" + rankText(percent));
-        quizArea.addView(card);
-        MaterialButton restart = new MaterialButton(requireContext());
-        restart.setText("再来一轮");
-        restart.setOnClickListener(v -> startQuiz());
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int) (getResources().getDisplayMetrics().density * 48));
-        params.topMargin = (int) (getResources().getDisplayMetrics().density * 14);
-        quizArea.addView(restart, params);
+        addInsight("挑战完成 · 正确率 " + session.accuracy() + "%", "答对 " + session.correct() + "/" + session.questions.size()
+                + " 题 · 积分 " + session.score() + "/" + session.maxScore());
+        for (int i = 0; i < session.questions.size(); i++) {
+            DataModels.Quiz quiz = session.questions.get(i);
+            int choice = session.choices.get(i);
+            if (choice != quiz.answer) addInsight("错题 " + (i + 1) + " · " + quiz.category, quiz.q + "\n\n你的答案：" + quiz.options.get(choice)
+                    + "\n正确答案：" + quiz.options.get(quiz.answer) + "\n\n" + (quiz.explanation == null ? "" : quiz.explanation));
+        }
+        addAction("再来一轮", this::startQuiz);
     }
 
-    private String rankText(int percent) {
-        if (percent >= 100) return "满分认证：你已经是百科本体了。";
-        if (percent >= 90) return "词条级观众：几乎无可挑剔。";
-        if (percent >= 75) return "资深考古家：细节掌握非常扎实。";
-        if (percent >= 60) return "忠实观众：还能继续往深处挖掘。";
-        if (percent >= 40) return "熟悉脸熟：不少名场面值得补课。";
-        return "入门观众：适合从经典视频开始考古。";
+    private void addInsight(String heading, String text) {
+        View card = getLayoutInflater().inflate(R.layout.item_insight, quizArea, false);
+        ((TextView) card.findViewById(R.id.title)).setText(heading);
+        TextView body = card.findViewById(R.id.body); body.setText(text); body.setTextSize(16);
+        body.setTextIsSelectable(true); quizArea.addView(card);
     }
 
-    private String difficultyName(String value) {
-        if ("easy".equals(value)) return "简单";
-        if ("hard".equals(value)) return "困难";
-        return "普通";
+    private void addAction(String text, Runnable action) {
+        MaterialButton button = new MaterialButton(requireContext()); button.setText(text); button.setOnClickListener(v -> action.run());
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2); params.topMargin = dp(12); quizArea.addView(button, params);
     }
+
+    private int dp(int value) { return (int) (value * getResources().getDisplayMetrics().density); }
+    private String difficultyName(String value) { return "easy".equals(value) ? "简单" : "hard".equals(value) ? "困难" : "普通"; }
 }
