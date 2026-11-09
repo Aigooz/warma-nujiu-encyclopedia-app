@@ -9,24 +9,31 @@ if (localPropsFile.exists()) {
     localPropsFile.withInputStream { localProps.load(it) }
 }
 
+def releaseKeystorePath = System.getenv("ANDROID_UPLOAD_KEYSTORE")
+        ?: localProps.getProperty("keystore.path")
+        ?: rootProject.file("upload-keystore.jks").absolutePath
+def releaseKeystorePassword = System.getenv("ANDROID_UPLOAD_KEYSTORE_PASSWORD")
+        ?: localProps.getProperty("keystore.password")
+def releaseKeyAlias = System.getenv("ANDROID_UPLOAD_KEY_ALIAS")
+        ?: localProps.getProperty("keystore.alias")
+        ?: "encyclopedia"
+
 android {
     namespace 'com.aigooz.encyclopediaapp'
     compileSdk 34
 
     signingConfigs {
         release {
-            def keystorePath = System.getenv("ANDROID_UPLOAD_KEYSTORE") ?: localProps.getProperty("keystore.path") ?: rootProject.file("upload-keystore.jks").absolutePath
-            def keystorePassword = System.getenv("ANDROID_UPLOAD_KEYSTORE_PASSWORD") ?: localProps.getProperty("keystore.password")
-            def keyAliasName = System.getenv("ANDROID_UPLOAD_KEY_ALIAS") ?: localProps.getProperty("keystore.alias") ?: "encyclopedia"
-            if (keystorePassword == null || keystorePassword.trim().isEmpty()) {
-                throw new GradleException(
-                        "缺少签名口令。请设置环境变量 ANDROID_UPLOAD_KEYSTORE_PASSWORD，" +
-                        "或在 local.properties 中配置 keystore.password（该文件不会被提交）。")
+            // 注意：这里不能直接 throw。signingConfigs 在**配置阶段**就会被求值，
+            // 而 testDebugUnitTest / lintDebug 等任务并不需要签名口令；
+            // 若在此处抛异常，这些任务同样会失败。因此缺失时留空，
+            // 由下面的 release 变体在真正打包时再校验。
+            if (releaseKeystorePassword != null && !releaseKeystorePassword.trim().isEmpty()) {
+                storeFile file(releaseKeystorePath)
+                storePassword releaseKeystorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeystorePassword
             }
-            storeFile file(keystorePath)
-            storePassword keystorePassword
-            keyAlias keyAliasName
-            keyPassword keystorePassword
         }
     }
 
@@ -76,4 +83,15 @@ dependencies {
     implementation 'com.google.code.gson:gson:2.10.1'
     implementation 'com.github.bumptech.glide:glide:4.16.0'
     implementation 'com.github.PhilJay:MPAndroidChart:v3.1.0'
+}
+
+// 只在真正要打包 release 时才校验签名口令，避免影响测试与 lint 任务。
+tasks.matching { it.name.equals("packageRelease") }.configureEach {
+    doFirst {
+        if (releaseKeystorePassword == null || releaseKeystorePassword.trim().isEmpty()) {
+            throw new GradleException(
+                    "缺少签名口令，无法打包 release。请设置环境变量 ANDROID_UPLOAD_KEYSTORE_PASSWORD，" +
+                    "或在 local.properties 中配置 keystore.password（该文件不会被提交）。")
+        }
+    }
 }
