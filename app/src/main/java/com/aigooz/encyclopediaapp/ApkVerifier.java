@@ -15,17 +15,20 @@ import java.util.Set;
 final class ApkVerifier {
     static void verify(Context context, File file, AppRelease release) throws Exception {
         if (!file.isFile() || file.length() != release.size) throw new IllegalStateException("安装包不完整");
-        if (release.sha256 != null) {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            try (FileInputStream stream = new FileInputStream(file)) {
-                byte[] buffer = new byte[64 * 1024];
-                int length;
-                while ((length = stream.read(buffer)) != -1) digest.update(buffer, 0, length);
-            }
-            StringBuilder hex = new StringBuilder();
-            for (byte value : digest.digest()) hex.append(String.format(java.util.Locale.ROOT, "%02x", value & 0xff));
-            if (!release.sha256.equals(hex.toString())) throw new IllegalStateException("安装包 SHA-256 校验失败");
+        // SHA-256 现在是必需项：AppRelease.parse 会拒绝缺少 digest 的发布，
+        // 从 SharedPreferences 恢复的任务若丢失摘要也一律不安装。
+        if (release.sha256 == null || !release.sha256.matches("[a-f0-9]{64}")) {
+            throw new IllegalStateException("缺少有效的安装包摘要，已中止安装");
         }
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        try (FileInputStream stream = new FileInputStream(file)) {
+            byte[] buffer = new byte[64 * 1024];
+            int length;
+            while ((length = stream.read(buffer)) != -1) digest.update(buffer, 0, length);
+        }
+        StringBuilder hex = new StringBuilder();
+        for (byte value : digest.digest()) hex.append(String.format(java.util.Locale.ROOT, "%02x", value & 0xff));
+        if (!release.sha256.equals(hex.toString())) throw new IllegalStateException("安装包 SHA-256 校验失败");
         PackageManager manager = context.getPackageManager();
         int flags = Build.VERSION.SDK_INT >= 28 ? PackageManager.GET_SIGNING_CERTIFICATES : PackageManager.GET_SIGNATURES;
         PackageInfo archive = manager.getPackageArchiveInfo(file.getAbsolutePath(), flags);

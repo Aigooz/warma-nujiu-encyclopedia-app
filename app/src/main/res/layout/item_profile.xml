@@ -15,10 +15,12 @@
         android:orientation="horizontal"
         android:padding="14dp">
 
+        <!-- 头像为装饰性图片，UP 主名称已在下方文本中给出。 -->
         <com.google.android.material.imageview.ShapeableImageView
             android:id="@+id/avatar"
             android:layout_width="52dp"
             android:layout_height="52dp"
+            android:importantForAccessibility="no"
             android:scaleType="centerCrop"
             app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Full" />
 

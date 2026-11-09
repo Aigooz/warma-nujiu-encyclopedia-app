@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12+ 的备份/迁移规则。
+
+  同 backup_rules.xml：使用 <include> 即表示白名单语义，
+  app-updater.xml 不在白名单内，天然不会被备份/迁移，无需 <exclude>。
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="sharedpref" path="library.xml" />
+        <include domain="sharedpref" path="encyclopedia.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="sharedpref" path="library.xml" />
+        <include domain="sharedpref" path="encyclopedia.xml" />
+    </device-transfer>
+</data-extraction-rules>

@@ -63,7 +63,11 @@ public class VideosFragment extends Fragment implements DataRepository.Listener 
         filterSummary = view.findViewById(R.id.filterSummary);
         view.findViewById(R.id.clearFilters).setOnClickListener(v -> { host().filter().reset(); host().notifyFiltersChanged(); });
         filterSummary.setOnClickListener(v -> host().showFilters());
-        videoList.setLayoutManager(new LinearLayoutManager(requireContext()));
+        // 大屏（≥600dp）走双列网格，手机竖屏保持单列；列数由 values-sw600dp 覆盖。
+        int columns = getResources().getInteger(R.integer.video_list_columns);
+        videoList.setLayoutManager(columns > 1
+                ? new androidx.recyclerview.widget.GridLayoutManager(requireContext(), columns)
+                : new LinearLayoutManager(requireContext()));
         adapter = new VideoAdapter(requireContext(), new ArrayList<>(), video -> VideoDetailActivity.open(this, video.bvid));
         videoList.setAdapter(adapter);
         refresh.setOnRefreshListener(() -> DataRepository.get().refresh(requireContext().getApplicationContext(), MainActivity.currentSite()));

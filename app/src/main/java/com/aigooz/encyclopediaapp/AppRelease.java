@@ -36,11 +36,16 @@ final class AppRelease {
             release.url = asset.get("browser_download_url").getAsString();
             release.size = asset.get("size").getAsLong();
             if (!release.validUrl() || release.size <= 0) throw new IllegalArgumentException("安装包地址或大小无效");
-            if (asset.has("digest") && !asset.get("digest").isJsonNull()) {
-                String digest = asset.get("digest").getAsString().toLowerCase(Locale.ROOT);
-                if (!digest.matches("sha256:[a-f0-9]{64}")) throw new IllegalArgumentException("安装包校验信息无效");
-                release.sha256 = digest.substring(7);
+            // SHA-256 必须是必需项。旧实现缺少 digest 时会静默跳过哈希校验，
+            // 使校验退化为「大小 + 签名」，给第三方镜像留下同名同大小的重放空间。
+            // GitHub Release API 会为资产提供 digest；缺失说明响应异常，此时中止更新，
+            // 用户仍可通过「在浏览器下载安装包」走发布页手动更新，不会被困住。
+            if (!asset.has("digest") || asset.get("digest").isJsonNull()) {
+                throw new IllegalArgumentException("发布包缺少校验摘要，已中止更新");
             }
+            String digest = asset.get("digest").getAsString().toLowerCase(Locale.ROOT);
+            if (!digest.matches("sha256:[a-f0-9]{64}")) throw new IllegalArgumentException("安装包校验信息无效");
+            release.sha256 = digest.substring(7);
             return release;
         }
         throw new IllegalArgumentException("尚未上传安装包");

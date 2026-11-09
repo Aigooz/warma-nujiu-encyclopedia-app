@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  备份/迁移规则。
+
+  注意语义：一旦使用 <include>，就表示**只**备份列出的路径，其余一律不备份。
+  因此 app-updater.xml（自更新任务状态）无需再写 <exclude>——它本来就不在
+  白名单内；写了反而会被 lint 判为无效规则（FullBackupContent）。
+-->
+<full-backup-content>
+    <include domain="sharedpref" path="library.xml" />
+    <include domain="sharedpref" path="encyclopedia.xml" />
+</full-backup-content>

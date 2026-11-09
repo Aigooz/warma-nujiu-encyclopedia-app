@@ -45,28 +45,64 @@ APP 启动后会从两个 GitHub Pages 数据源拉取最新 `data.js` 与 `data
 
 APP 内提供“检查更新”入口：自动读取 GitHub Release，直接下载 APK，下载完成后唤起系统安装界面，不再需要先跳转浏览器。
 
-更新下载默认使用 GitHub 官方线路，失败或连续 30 秒没有进展时按顺序尝试 `ghfast.top`、`gh-proxy.com` 两条第三方备用线路，也可以手动选择线路或使用浏览器下载。备用线路的可用性因网络而异。安装前校验文件大小、GitHub 提供的 SHA-256（如果存在）、包名、版本号与当前应用签名；校验失败的文件不会交给安装器。下载任务在切换页面、重建页面后恢复，未知来源安装权限可从应用内授权。
+更新下载默认使用 GitHub 官方线路，失败或连续 30 秒没有进展时按顺序尝试 `ghfast.top`、`gh-proxy.com` 两条第三方备用线路，也可以手动选择线路或使用浏览器下载。备用线路的可用性因网络而异。安装前校验文件大小、GitHub 提供的 SHA-256、包名、版本号与当前应用签名；校验失败的文件不会交给安装器。下载任务在切换页面、重建页面后恢复，未知来源安装权限可从应用内授权。
+
+自 1.4.0 起 SHA-256 为必需项：若发布元数据缺少校验摘要，应用会中止更新并提示改用浏览器下载，不再退化为仅校验文件大小与签名。
 
 旧版的单源下载逻辑无法远程修复；若旧版无法下载，请先从 Release 或备用线路手动安装 1.3.1 或更新版本。
 
 ## 构建
 
-GitHub Actions 会自动构建。需要本地构建时：
+需要本地构建时（仓库已含 Gradle Wrapper，请使用 `gradlew` 而非系统 `gradle`，以保证版本一致）：
 
 ```powershell
-gradle assembleRelease
+.\gradlew assembleRelease
 ```
 
-验证筛选、排序、时长解析、答题计分及两套内置数据：
+签名口令不再硬编码在源码中。本地构建需在 `local.properties`（已被 `.gitignore` 忽略）中配置，或改用环境变量：
+
+```properties
+keystore.password=你的口令
+keystore.alias=encyclopedia
+```
 
 ```powershell
-gradle :app:testDebugUnitTest :app:lintDebug
+$env:ANDROID_UPLOAD_KEYSTORE_PASSWORD="你的口令"
 ```
 
-Windows + JDK 17 在中文目录下若出现测试类 `ClassNotFoundException`，可使用系统代码页启动独立 Gradle 进程（仅影响该次构建，不修改源码编码）：
+CI 通过 `ANDROID_UPLOAD_KEYSTORE_PASSWORD` 等 secrets 注入，无需改动配置文件。
+
+验证筛选、排序、时长解析、答题计分、内置数据解析及发布元数据校验：
 
 ```powershell
-gradle --no-daemon '-Dorg.gradle.jvmargs=-Xmx2048m -Dfile.encoding=GBK' :app:testDebugUnitTest
+.\gradlew :app:testDebugUnitTest :app:lintDebug
 ```
 
-当前内置数据快照较大，属于有意设计：它用于保证第一次启动或离线状态下也能浏览完整百科。
+Windows 在中文目录下若出现测试类 `ClassNotFoundException`，可使用系统代码页启动独立 Gradle 进程（仅影响该次构建，不修改源码编码）：
+
+```powershell
+.\gradlew --no-daemon '-Dorg.gradle.jvmargs=-Xmx2048m -Dfile.encoding=GBK' :app:testDebugUnitTest
+```
+
+当前内置数据快照较大，属于有意设计：它用于保证第一次启动或离线状态下也能浏览完整百科。release 构建已开启 R8 与资源压缩，`app/proguard-rules.pro` 中的 keep 规则是数据解析正确性的前提，请勿随意删除。
+
+## 版本记录
+
+### 1.4.0
+
+- 开启 R8 代码压缩与资源压缩，APK 体积从 6.34 MB 降至约 3.19 MB。
+- 修复筛选变更导致所有已访问页面全量重算重绘的问题；非当前分栏改为按需懒渲染。
+- 视频库与榜单列表复用适配器实例，保留 ViewHolder 复用池与滚动位置。
+- 补齐平板 / 折叠屏（`sw600dp` 双列）与横屏布局；移除 `configChanges` 中屏蔽重建的方向配置。
+- 修复深色模式配色缺失（`values-night` 补全 7 个语义色）；图表与界面硬编码色值改由资源管理。
+- 补全无障碍标记：装饰性图片跳过 TalkBack，收藏勾选框触控区域达到 48dp。
+- 收紧安全配置：关闭明文流量；备份规则仅保留用户个人数据，排除自更新任务状态。
+- 签名口令改为环境变量 / `local.properties` 注入，不再硬编码；密钥副本移至仓库外。
+- 自更新校验强化：SHA-256 成为必需项，缺失摘要时中止更新。
+- 数据同步更健壮：缓存改为「先写临时文件再原子改名」，消除数据与题库版本错配；增加退避重试与可区分的错误提示；User-Agent 跟随实际版本号。
+- 数据/题库文本裁剪改为定位赋值语句与括号配对，不再受注释中等号或数组后内容影响。
+- 外部 Intent 与偏好设置中的站点名做容错解析，非法值不再引发崩溃。
+- 筛选面板下拉框由原生 `Spinner` 改为 Material3 风格。
+- 引入 Gradle Wrapper；CI 增加单元测试与 lint 环节。
+- 新增 14 项单元测试（解析逻辑 + 反序列化回归防护），用于防止 R8 规则失效导致数据解析为空的回归。
+

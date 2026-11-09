@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      平板 / 折叠屏展开态（最小宽度 ≥ 600dp）：
+      - 视频库改为双列网格，充分利用横向空间。
+      - 图表适当增高，避免大屏上显得扁平。
+      - 限制正文最大宽度，防止单行文字过长影响阅读。
+    -->
+    <integer name="video_list_columns">2</integer>
+    <integer name="content_max_width_dp">840</integer>
+    <dimen name="chart_height">300dp</dimen>
+    <dimen name="chart_height_detail">280dp</dimen>
+</resources>

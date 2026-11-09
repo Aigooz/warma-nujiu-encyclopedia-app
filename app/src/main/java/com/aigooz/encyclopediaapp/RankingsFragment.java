@@ -59,6 +59,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
     private ChipGroup metricChips;
     private com.github.mikephil.charting.charts.HorizontalBarChart rankChart;
     private RecyclerView rankList;
+    private RankingAdapter rankAdapter;
     private LinearLayout insightContainer;
     private CombinedChart annualChart;
     private BarChart clockChart;
@@ -246,12 +247,12 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         clusterChart.setScaleEnabled(true);
         clusterChart.getAxisRight().setEnabled(false);
         clusterChart.getAxisLeft().setDrawGridLines(true);
-        clusterChart.getAxisLeft().setGridColor(Color.parseColor("#1F656D7D"));
+        clusterChart.getAxisLeft().setGridColor(ContextCompat.getColor(requireContext(), R.color.chart_grid));
         clusterChart.getAxisLeft().setTextColor(axisColor());
         clusterChart.getAxisLeft().setTextSize(10f);
         clusterChart.getXAxis().setPosition(XAxis.XAxisPosition.BOTTOM);
         clusterChart.getXAxis().setDrawGridLines(true);
-        clusterChart.getXAxis().setGridColor(Color.parseColor("#1F656D7D"));
+        clusterChart.getXAxis().setGridColor(ContextCompat.getColor(requireContext(), R.color.chart_grid));
         clusterChart.getXAxis().setTextColor(axisColor());
         clusterChart.getXAxis().setTextSize(10f);
         clusterChart.getLegend().setEnabled(true);
@@ -309,6 +310,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
     @Override
     public void onDestroyView() {
         DataRepository.get().removeListener(this);
+        rankAdapter = null;
         super.onDestroyView();
     }
 
@@ -353,8 +355,13 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         List<DataModels.Video> sorted = new ArrayList<>(dataset.data.videos);
         sorted.sort((a, b) -> Double.compare(b.metric(metric), a.metric(metric)));
         List<DataModels.Video> top = sorted.subList(0, Math.min(10, sorted.size()));
-        rankList.setAdapter(new RankingAdapter(requireContext(), new ArrayList<>(top), metric,
-                video -> VideoDetailActivity.open(this, video.bvid)));
+        // 复用同一个适配器实例，保留 ViewHolder 复用池与滚动位置（旧实现每次新建适配器）。
+        if (rankAdapter == null) {
+            rankAdapter = new RankingAdapter(requireContext(), new ArrayList<>(), metric,
+                    video -> VideoDetailActivity.open(this, video.bvid));
+            rankList.setAdapter(rankAdapter);
+        }
+        rankAdapter.submit(new ArrayList<>(top), metric);
 
         List<BarEntry> entries = new ArrayList<>();
         List<String> labels = new ArrayList<>();
@@ -438,7 +445,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         barSet.setColor(ContextCompat.getColor(requireContext(), R.color.blue));
         barSet.setDrawValues(false);
         LineDataSet lineSet = new LineDataSet(line, "累计视频");
-        lineSet.setColor(Color.parseColor("#00B894"));
+        lineSet.setColor(ContextCompat.getColor(requireContext(), R.color.mint));
         lineSet.setLineWidth(2.6f);
         lineSet.setDrawCircles(false);
         lineSet.setDrawValues(false);
@@ -468,7 +475,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
             labels.add(String.valueOf(i));
         }
         BarDataSet set = new BarDataSet(entries, "发布数量");
-        set.setColor(Color.parseColor("#4CA6FF"));
+        set.setColor(ContextCompat.getColor(requireContext(), R.color.blue));
         set.setDrawValues(false);
         clockChart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
         clockChart.getXAxis().setLabelCount(8, false);
@@ -490,7 +497,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
             labels.add(names[i]);
         }
         BarDataSet set = new BarDataSet(entries, "更新数量");
-        set.setColor(Color.parseColor("#FF9F43"));
+        set.setColor(ContextCompat.getColor(requireContext(), R.color.orange));
         set.setDrawValues(false);
         weekdayChart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
         weekdayChart.setData(new BarData(set));
@@ -612,8 +619,8 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         }
 
         ScatterData data = new ScatterData();
-        int[] colors = {ContextCompat.getColor(requireContext(), R.color.blue), Color.parseColor("#00B894"),
-                Color.parseColor("#FF6B8A"), Color.parseColor("#FF9F43")};
+        int[] colors = {ContextCompat.getColor(requireContext(), R.color.blue), ContextCompat.getColor(requireContext(), R.color.mint),
+                ContextCompat.getColor(requireContext(), R.color.chart_accent_pink), ContextCompat.getColor(requireContext(), R.color.orange)};
         int labelIndex = 0;
         for (List<Entry> entries : groups) {
             if (entries.isEmpty()) continue;

@@ -42,6 +42,7 @@ public class HomeFragment extends Fragment implements DataRepository.Listener {
     private BarChart yearlyChart;
     private ChipGroup typeChips;
     private RecyclerView latestList;
+    private VideoAdapter latestAdapter;
     private ChipGroup memeChips;
     private TextView dataStatus;
     private TextView selectionSummary;
@@ -110,6 +111,8 @@ public class HomeFragment extends Fragment implements DataRepository.Listener {
     @Override
     public void onDestroyView() {
         DataRepository.get().removeListener(this);
+        // View 销毁后旧适配器持有的 Context 引用应释放，下次重建时重新创建。
+        latestAdapter = null;
         super.onDestroyView();
     }
 
@@ -246,7 +249,15 @@ public class HomeFragment extends Fragment implements DataRepository.Listener {
         for (DataModels.Video video : data.videos) latest.add(video);
         latest.sort((a, b) -> b.date.compareTo(a.date));
         latestTitle.setText(latest.isEmpty() ? "暂无符合条件的视频" : "最新投稿 · " + latest.get(0).date);
-        latestList.setAdapter(new VideoAdapter(requireContext(), latest.subList(0, Math.min(5, latest.size())), video -> VideoDetailActivity.open(this, video.bvid)));
+        // 复用同一个适配器实例，走 DiffUtil 增量更新；旧实现在每次渲染时 setAdapter 新建适配器，
+        // 会丢弃 RecyclerView 的复用池并丢失滚动位置。
+        List<DataModels.Video> top = new ArrayList<>(latest.subList(0, Math.min(5, latest.size())));
+        if (latestAdapter == null) {
+            latestAdapter = new VideoAdapter(requireContext(), new ArrayList<>(),
+                    video -> VideoDetailActivity.open(this, video.bvid));
+            latestList.setAdapter(latestAdapter);
+        }
+        latestAdapter.submit(top);
     }
 
     private void renderMemes(DataModels.RawData data) {

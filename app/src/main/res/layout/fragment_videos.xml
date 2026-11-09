@@ -18,7 +18,8 @@
                 android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingStart="12dp" android:paddingEnd="4dp"
                 app:selectionRequired="true" app:singleLine="true" app:singleSelection="true" />
             <com.google.android.material.checkbox.MaterialCheckBox android:id="@+id/favoritesOnly"
-                android:layout_width="wrap_content" android:layout_height="48dp" android:paddingStart="0dp" android:paddingEnd="16dp" android:text="我的收藏" />
+                android:layout_width="wrap_content" android:layout_height="48dp" android:minWidth="48dp"
+                android:paddingStart="8dp" android:paddingEnd="16dp" android:text="我的收藏" />
         </LinearLayout>
     </HorizontalScrollView>
     <HorizontalScrollView android:layout_width="match_parent" android:layout_height="wrap_content" android:scrollbars="none">

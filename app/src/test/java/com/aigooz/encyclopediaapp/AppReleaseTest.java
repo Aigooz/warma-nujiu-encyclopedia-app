@@ -10,14 +10,17 @@ public class AppReleaseTest {
                 + "\"browser_download_url\":\"" + url + "\",\"digest\":" + digest + "}]}";
     }
 
+    private String hash() {
+        return new String(new char[64]).replace('\0', 'a');
+    }
+
     private String official() {
         return "https://github.com/" + AppRelease.REPOSITORY + "/releases/download/v1.3.1/app-release.apk";
     }
 
     @Test public void parsesExactApkAndBuildsHttpsFallbacks() {
-        String hash = new String(new char[64]).replace('\0', 'a');
-        AppRelease release = AppRelease.parse(json(official(), "\"sha256:" + hash + "\""));
-        assertEquals(hash, release.sha256);
+        AppRelease release = AppRelease.parse(json(official(), "\"sha256:" + hash() + "\""));
+        assertEquals(hash(), release.sha256);
         assertEquals(6000000, release.size);
         assertEquals(official(), release.sourceUrl(0));
         assertEquals("https://ghfast.top/" + official(), release.sourceUrl(1));
@@ -25,20 +28,26 @@ public class AppReleaseTest {
         assertEquals("encyclopedia-1.3.1.apk", release.fileName());
     }
 
-    @Test public void supportsOlderReleasesWithoutDigest() {
-        assertNull(AppRelease.parse(json(official(), "null")).sha256);
+    /**
+     * SHA-256 现在是必需项：缺少 digest 的发布会被拒绝，避免校验退化为「大小 + 签名」。
+     * 用户在应用内仍可走「在浏览器下载安装包」的发布页入口手动更新。
+     */
+    @Test public void rejectsReleasesWithoutDigest() {
+        assertInvalid(json(official(), "null"));
+        assertInvalid(json(official(), "null").replace("\"digest\":null,", ""));
     }
 
     @Test public void rejectsUnexpectedSourcesAndMalformedMetadata() {
+        String valid = "\"sha256:" + hash() + "\"";
         String[] invalid = {official().replace("https:", "http:"), official().replace("github.com", "evil.example"),
                 official().replace("/Aigooz/", "/other/"), official() + "?file=other", official().replace("v1.3.1", "v1.3.0"),
                 official().replace("github.com/", "github.com:443/"), official().replace("github.com", "user@github.com")};
-        for (String url : invalid) assertInvalid(json(url, "null"));
+        for (String url : invalid) assertInvalid(json(url, valid));
         assertInvalid(json(official(), "\"sha256:abc\""));
-        assertInvalid(json(official(), "null").replace("6000000", "0"));
-        assertInvalid(json(official(), "null").replace("app-release.apk\",\"size", "other.apk\",\"size"));
-        assertInvalid(json(official(), "null").replace("{\"tag_name", "{\"draft\":true,\"tag_name"));
-        assertInvalid(json(official(), "null").replace("{\"tag_name", "{\"prerelease\":true,\"tag_name"));
+        assertInvalid(json(official(), valid).replace("6000000", "0"));
+        assertInvalid(json(official(), valid).replace("app-release.apk\",\"size", "other.apk\",\"size"));
+        assertInvalid(json(official(), valid).replace("{\"tag_name", "{\"draft\":true,\"tag_name"));
+        assertInvalid(json(official(), valid).replace("{\"tag_name", "{\"prerelease\":true,\"tag_name"));
     }
 
     private void assertInvalid(String json) {
@@ -69,7 +78,7 @@ public class AppReleaseTest {
 
     @Test public void taskRoundTripRetainsExactReleaseAndDownloadIdentity() {
         UpdateDownload task = new UpdateDownload();
-        task.release = AppRelease.parse(json(official(), "null"));
+        task.release = AppRelease.parse(json(official(), "\"sha256:" + hash() + "\""));
         task.id = 123;
         task.source = 1;
         task.ready = true;

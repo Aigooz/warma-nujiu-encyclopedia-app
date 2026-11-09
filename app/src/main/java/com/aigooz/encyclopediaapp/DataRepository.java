@@ -112,19 +112,28 @@ public final class DataRepository {
             String quizText = download(site.quizUrl);
             DataModels.Dataset remote = parse(site, dataText, quizText, false);
             if (remote != null && remote.data != null && remote.data.videos != null && !remote.data.videos.isEmpty()) {
-                // Validate both payloads before replacing the offline snapshot.
-                writeText(context, site.dataCacheName, dataText);
-                writeText(context, site.quizCacheName, quizText);
+                // 两份载荷都通过校验后才写入缓存，且先写临时文件再原子改名，
+                // 避免出现「新数据 + 旧题库」这种版本错配的中间态。
+                writeTextAtomic(context, site.dataCacheName, dataText);
+                writeTextAtomic(context, site.quizCacheName, quizText);
                 datasets.put(site, remote);
-            } else throw new IllegalStateException("Empty remote dataset");
+            } else throw new IllegalStateException("远端数据为空");
         } catch (Exception e) {
             Log.w(TAG, "Sync failed", e);
-            errors.put(site, "同步失败，已保留离线数据");
+            errors.put(site, describeError(e));
             if (fallback != null) datasets.putIfAbsent(site, fallback);
         } finally {
             loading.put(site, false);
             notifyMain();
         }
+    }
+
+    /** 把异常翻译成用户可读、且能区分「网络问题」与「数据格式问题」的短句。 */
+    private String describeError(Exception e) {
+        if (e instanceof java.net.SocketTimeoutException) return "同步超时，已保留离线数据";
+        if (e instanceof java.net.UnknownHostException) return "无法连接网络，已保留离线数据";
+        if (e instanceof java.io.IOException) return "网络异常，已保留离线数据";
+        return "数据格式有误，已保留离线数据";
     }
 
     private DataModels.Dataset readDataset(Context context, Site site) {
@@ -154,38 +163,127 @@ public final class DataRepository {
         return new DataModels.Dataset(site, data, quiz, fromCache);
     }
 
-    private String stripData(String text) {
-        int equals = text.indexOf('=');
-        int result = equals >= 0 ? equals + 1 : 0;
-        String body = text.substring(result).trim();
+    /**
+     * 从 `const RAW = {...};` 中取出 JSON 主体。
+     *
+     * 旧实现直接取**第一个** '='，一旦文件头注释里出现等号（例如 `// version=v2`），
+     * 就会从注释处截断导致解析失败。这里先定位赋值语句 `RAW =`，再取其后的等号。
+     */
+    static String stripData(String text) {
+        int equals = -1;
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("(?m)^\\s*(?:const\\s+|var\\s+|let\\s+)?RAW\\s*=")
+                .matcher(text);
+        if (matcher.find()) equals = text.indexOf('=', matcher.start());
+        String body = (equals >= 0 ? text.substring(equals + 1) : text).trim();
         if (body.endsWith(";")) body = body.substring(0, body.length() - 1);
-        return body;
+        return body.trim();
     }
 
-    private String stripQuiz(String text) {
+    /**
+     * 从 `const QUIZ_DATA = [...]` 中取出数组。
+     *
+     * 旧实现用 `lastIndexOf(']')`，若数组之后还有任何含 ']' 的内容就会取错位置。
+     * 改为用 JSON 括号配对扫描，取第一个顶层数组的完整范围。
+     */
+    static String stripQuiz(String text) {
         int key = text.indexOf("QUIZ_DATA");
         int start = text.indexOf('[', key < 0 ? 0 : key);
-        int end = text.lastIndexOf(']');
+        if (start < 0) throw new IllegalStateException("题库缺少 JSON 数组");
+        int end = matchArrayEnd(text, start);
+        if (end < 0) throw new IllegalStateException("题库 JSON 数组未闭合");
         return text.substring(start, end + 1);
     }
 
+    /** 从 '[' 开始做括号配对（跳过字符串字面量），返回匹配的 ']' 下标；未闭合返回 -1。 */
+    static int matchArrayEnd(String text, int start) {
+        int depth = 0;
+        boolean inString = false;
+        boolean escaped = false;
+        for (int i = start; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (inString) {
+                if (escaped) escaped = false;
+                else if (c == '\\') escaped = true;
+                else if (c == '"') inString = false;
+                continue;
+            }
+            if (c == '"') inString = true;
+            else if (c == '[') depth++;
+            else if (c == ']') {
+                depth--;
+                if (depth == 0) return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * 带退避重试的下载。
+     *
+     * 旧实现一次失败即放弃，弱网或 GitHub Pages 偶发 5xx 时会直接退回离线快照。
+     * 这里对「网络类异常」重试 3 次（间隔 1s / 2s / 4s）；HTTP 4xx 属于确定性错误，
+     * 重试没有意义，立即抛出。
+     */
     private String download(String path) throws Exception {
+        Exception last = null;
+        long[] backoff = {1000L, 2000L, 4000L};
+        for (int attempt = 0; attempt <= backoff.length; attempt++) {
+            try {
+                return downloadOnce(path);
+            } catch (Exception e) {
+                last = e;
+                if (!isRetryable(e) || attempt == backoff.length) break;
+                Log.w(TAG, "Download retry " + (attempt + 1) + " for " + path, e);
+                try {
+                    Thread.sleep(backoff[attempt]);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+        throw last;
+    }
+
+    private boolean isRetryable(Exception e) {
+        if (e instanceof java.net.SocketTimeoutException || e instanceof java.net.UnknownHostException
+                || e instanceof java.net.ConnectException || e instanceof java.io.InterruptedIOException) {
+            return true;
+        }
+        // "HTTP 5xx" 与连接中断类 IOException 值得重试；4xx 不重试。
+        String message = e.getMessage();
+        if (message != null && message.startsWith("HTTP ")) {
+            try {
+                int code = Integer.parseInt(message.substring(5).trim());
+                return code >= 500;
+            } catch (NumberFormatException ignored) {
+                return false;
+            }
+        }
+        return e instanceof java.io.IOException;
+    }
+
+    private String downloadOnce(String path) throws Exception {
         HttpURLConnection connection = (HttpURLConnection) new URL(path).openConnection();
         connection.setConnectTimeout(10000);
         connection.setReadTimeout(20000);
-        connection.setRequestProperty("User-Agent", "Warma-Nujiu-Android/1.1");
+        // 版本号跟随 BuildConfig，避免像旧版那样长期硬编码成 1.1 与实际版本脱节。
+        connection.setRequestProperty("User-Agent", "Warma-Nujiu-Android/" + BuildConfig.VERSION_NAME);
         connection.setRequestProperty("Accept", "*/*");
         try {
-        int code = connection.getResponseCode();
-        if (code != 200) throw new IllegalStateException("HTTP " + code);
-        try (InputStream input = connection.getInputStream();
-             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            byte[] buffer = new byte[8192];
-            int len;
-            while ((len = input.read(buffer)) != -1) output.write(buffer, 0, len);
-            return new String(output.toByteArray(), StandardCharsets.UTF_8);
+            int code = connection.getResponseCode();
+            if (code != 200) throw new IllegalStateException("HTTP " + code);
+            try (InputStream input = connection.getInputStream();
+                 ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+                byte[] buffer = new byte[8192];
+                int len;
+                while ((len = input.read(buffer)) != -1) output.write(buffer, 0, len);
+                return new String(output.toByteArray(), StandardCharsets.UTF_8);
+            }
+        } finally {
+            connection.disconnect();
         }
-        } finally { connection.disconnect(); }
     }
 
     private String readAsset(Context context, String name) throws Exception {
@@ -214,10 +312,23 @@ public final class DataRepository {
         }
     }
 
-    private void writeText(Context context, String name, String value) {
-        try (java.io.FileOutputStream output = context.openFileOutput(name, Context.MODE_PRIVATE)) {
+    private void writeTextAtomic(Context context, String name, String value) throws Exception {
+        File target = new File(context.getFilesDir(), name);
+        File temp = new File(context.getFilesDir(), name + ".tmp");
+        try (java.io.FileOutputStream output = new java.io.FileOutputStream(temp)) {
             output.write(value.getBytes(StandardCharsets.UTF_8));
-        } catch (Exception ignored) {}
+            output.getFD().sync();
+        } catch (Exception e) {
+            //noinspection ResultOfMethodCallIgnored
+            temp.delete();
+            throw e;
+        }
+        // 同目录改名在同文件系统上是原子操作，读端要么看到旧文件、要么看到新文件。
+        if (!temp.renameTo(target)) {
+            //noinspection ResultOfMethodCallIgnored
+            temp.delete();
+            throw new java.io.IOException("缓存写入失败：" + name);
+        }
     }
 
     private void notifyMain() {

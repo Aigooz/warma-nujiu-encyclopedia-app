@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 视频库列表列数。手机竖屏为单列；平板/折叠屏展开态由 values-sw600dp 覆盖为 2 列。 -->
+    <integer name="video_list_columns">1</integer>
+    <!-- 内容最大宽度（dp）。0 表示不限制；大屏上限制宽度避免单行文字过长。 -->
+    <integer name="content_max_width_dp">0</integer>
+    <!-- 图表高度 -->
+    <dimen name="chart_height">230dp</dimen>
+    <dimen name="chart_height_detail">220dp</dimen>
+</resources>

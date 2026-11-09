@@ -39,7 +39,8 @@ public class VideoDetailActivity extends AppCompatActivity implements DataReposi
         toolbar.setNavigationOnClickListener(v -> finish());
         bvid = getIntent().getStringExtra("bvid");
         String siteName = getIntent().getStringExtra("site");
-        site = siteName == null ? MainActivity.currentSite() : Site.valueOf(siteName);
+        Site parsed = MainActivity.parseSite(siteName);
+        site = parsed == null ? MainActivity.currentSite() : parsed;
         DataRepository.get().addListener(this);
         if (DataRepository.get().current(site) == null) DataRepository.get().load(getApplicationContext(), site);
         render();
@@ -160,7 +161,7 @@ public class VideoDetailActivity extends AppCompatActivity implements DataReposi
         LineDataSet set = new LineDataSet(entries, "弹幕分布");
         set.setColor(androidx.core.content.ContextCompat.getColor(this, R.color.primary));
         set.setLineWidth(2.5f);
-        set.setCircleColor(Color.parseColor("#FF6B8A"));
+        set.setCircleColor(androidx.core.content.ContextCompat.getColor(this, R.color.chart_accent_pink));
         set.setCircleRadius(2.5f);
         set.setDrawValues(false);
         set.setMode(LineDataSet.Mode.CUBIC_BEZIER);

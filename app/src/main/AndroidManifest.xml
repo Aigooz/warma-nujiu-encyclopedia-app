@@ -1,24 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- 下载目录使用 getExternalFilesDir（应用专属目录），Android 10+ 无需该权限；
+         maxSdkVersion=28 仅为兼容旧机型的写入路径，保持不变。 -->
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
 
     <application
         android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
         android:hardwareAccelerated="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:usesCleartextTraffic="true"
-        android:theme="@style/Theme.EncyclopediaApp">
+        android:theme="@style/Theme.EncyclopediaApp"
+        android:usesCleartextTraffic="false"
+        tools:targetApi="31">
+        <!--
+          移除 configChanges 中的 orientation|screenSize：
+          旧配置让旋转时 Activity 不重建，导致横屏布局资源永不加载、也不重新测量。
+          现在交由系统正常重建，状态通过 onSaveInstanceState + Fragment 自身状态恢复。
+          keyboardHidden 保留（软键盘显隐不需要重建界面）。
+        -->
         <activity
             android:name=".MainActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:exported="true">
+            android:configChanges="keyboardHidden"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

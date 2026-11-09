@@ -20,10 +20,12 @@
         android:padding="10dp">
 
         <FrameLayout android:layout_width="104dp" android:layout_height="72dp">
+        <!-- 封面属于装饰性图片：标题已完整表达内容，让 TalkBack 跳过以免噪音。 -->
         <com.google.android.material.imageview.ShapeableImageView
             android:id="@+id/cover"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:importantForAccessibility="no"
             android:scaleType="centerCrop"
             app:shapeAppearanceOverlay="@style/ShapeAppearance.Encyclopedia.Small" />
         <TextView android:id="@+id/duration" android:layout_width="wrap_content" android:layout_height="wrap_content"
