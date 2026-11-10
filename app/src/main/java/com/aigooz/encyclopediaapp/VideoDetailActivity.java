@@ -98,7 +98,7 @@ public class VideoDetailActivity extends AppCompatActivity implements DataReposi
         addStatRow(statGrid, "弹幕", UiUtils.number(this, video.danmaku), "评论", UiUtils.number(this, video.reply));
         addStatRow(statGrid, "收藏", UiUtils.number(this, video.favorite), "投币", UiUtils.number(this, video.coin));
         addStatRow(statGrid, "分享", UiUtils.number(this, video.share), "互动率", UiUtils.percent(video.interactionRate()));
-        addStatRow(statGrid, "字幕行数", UiUtils.number(this, video.sub_lines), "字幕字符", UiUtils.number(this, video.sub_chars));
+        addStatRow(statGrid, "可阅读字幕行", UiUtils.number(this, video.subtitle_available_lines), "台账字幕行", UiUtils.number(this, video.sub_lines));
         for (DataModels.Tag tag : video.tags) {
             Chip chip = new Chip(this);
             chip.setText(tag.name);
@@ -112,6 +112,7 @@ public class VideoDetailActivity extends AppCompatActivity implements DataReposi
         }
         setupChart(peakChart, video);
         findViewById(R.id.openSubtitles).setOnClickListener(v -> showSubtitles(video));
+        findViewById(R.id.openDanmaku).setOnClickListener(v -> showDanmaku(video));
         openBili.setOnClickListener(v -> {
             try {
                 startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.bilibili.com/video/" + video.bvid)));
@@ -119,6 +120,102 @@ public class VideoDetailActivity extends AppCompatActivity implements DataReposi
                 android.widget.Toast.makeText(this, "没有可用的浏览器", android.widget.Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    private void showDanmaku(DataModels.Video video) {
+        if (video.bvid == null || !video.bvid.matches("BV[0-9A-Za-z]{10}")) return;
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        int padding = (int) (16 * getResources().getDisplayMetrics().density);
+        panel.setPadding(padding, 0, padding, 0);
+        TextView status = new TextView(this);
+        status.setText("正在加载弹幕…");
+        android.widget.Spinner pageChoice = new android.widget.Spinner(this);
+        android.widget.EditText search = new android.widget.EditText(this);
+        search.setSingleLine(true);
+        search.setHint("搜索弹幕");
+        android.widget.ListView list = new android.widget.ListView(this);
+        android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<>(this,
+                android.R.layout.simple_list_item_1, new ArrayList<>());
+        list.setAdapter(adapter);
+        panel.addView(status);
+        panel.addView(pageChoice);
+        panel.addView(search);
+        panel.addView(list, new LinearLayout.LayoutParams(-1, (int) (360 * getResources().getDisplayMetrics().density)));
+        androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("弹幕记录").setView(panel).setPositiveButton("关闭", null).create();
+        dialog.show();
+        String url = site.dataUrl.substring(0, site.dataUrl.lastIndexOf('/') + 1)
+                + "danmaku/" + video.bvid + ".json";
+        new Thread(() -> {
+            org.json.JSONArray pages = null;
+            String error = "弹幕加载失败，请检查网络后重试";
+            java.net.HttpURLConnection connection = null;
+            try {
+                connection = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
+                connection.setConnectTimeout(10000);
+                connection.setReadTimeout(30000);
+                int code = connection.getResponseCode();
+                if (code == 404) error = "暂无已收录的弹幕";
+                else if (code == 200) {
+                    try (java.io.InputStream input = connection.getInputStream();
+                         java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream()) {
+                        byte[] buffer = new byte[8192];
+                        int count;
+                        while ((count = input.read(buffer)) != -1) {
+                            bytes.write(buffer, 0, count);
+                            if (bytes.size() > 32 * 1024 * 1024) throw new java.io.IOException("Data too large");
+                        }
+                        pages = new org.json.JSONObject(bytes.toString("UTF-8")).getJSONArray("pages");
+                    }
+                }
+            } catch (Exception ignored) {
+            } finally {
+                if (connection != null) connection.disconnect();
+            }
+            org.json.JSONArray loaded = pages;
+            String message = error;
+            runOnUiThread(() -> {
+                if (isFinishing() || !dialog.isShowing()) return;
+                if (loaded == null || loaded.length() == 0) { status.setText(message); return; }
+                List<String> labels = new ArrayList<>();
+                for (int i = 0; i < loaded.length(); i++) {
+                    org.json.JSONObject page = loaded.optJSONObject(i);
+                    labels.add("P" + page.optInt("page", i + 1) + " · " + page.optString("title", ""));
+                }
+                android.widget.ArrayAdapter<String> choices = new android.widget.ArrayAdapter<>(this,
+                        android.R.layout.simple_spinner_item, labels);
+                choices.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                pageChoice.setAdapter(choices);
+                Runnable refresh = () -> {
+                    org.json.JSONObject page = loaded.optJSONObject(pageChoice.getSelectedItemPosition());
+                    if (page == null) return;
+                    org.json.JSONArray items = page.optJSONArray("items");
+                    List<String> matching = new ArrayList<>();
+                    String query = search.getText().toString().trim().toLowerCase(java.util.Locale.ROOT);
+                    if (items != null) for (int i = 0; i < items.length(); i++) {
+                        org.json.JSONObject item = items.optJSONObject(i);
+                        if (item == null) continue;
+                        String text = item.optString("text", "");
+                        if (text.toLowerCase(java.util.Locale.ROOT).contains(query))
+                            matching.add(UiUtils.timestamp((float) item.optDouble("t", 0)) + "  " + text);
+                    }
+                    adapter.clear();
+                    adapter.addAll(matching);
+                    status.setText("已收录 " + (items == null ? 0 : items.length()) + " 条 · 匹配 " + matching.size() + " 条");
+                };
+                pageChoice.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+                    @Override public void onItemSelected(android.widget.AdapterView<?> p, View v, int pos, long id) { refresh.run(); }
+                    @Override public void onNothingSelected(android.widget.AdapterView<?> p) {}
+                });
+                search.addTextChangedListener(new android.text.TextWatcher() {
+                    @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                    @Override public void onTextChanged(CharSequence s, int start, int before, int count) { refresh.run(); }
+                    @Override public void afterTextChanged(android.text.Editable s) {}
+                });
+                refresh.run();
+            });
+        }).start();
     }
 
     private void showSubtitles(DataModels.Video video) {
@@ -189,9 +286,17 @@ public class VideoDetailActivity extends AppCompatActivity implements DataReposi
     private void setupChart(LineChart chart, DataModels.Video video) {
         chart.getDescription().setEnabled(false);
         chart.getLegend().setEnabled(false);
-        chart.setTouchEnabled(false);
+        chart.setTouchEnabled(true);
+        chart.setDragEnabled(false);
         chart.setScaleEnabled(false);
         chart.setPinchZoom(false);
+        chart.setOnChartValueSelectedListener(new com.github.mikephil.charting.listener.OnChartValueSelectedListener() {
+            @Override public void onValueSelected(Entry entry, com.github.mikephil.charting.highlight.Highlight highlight) {
+                android.widget.Toast.makeText(VideoDetailActivity.this,
+                        UiUtils.timestamp(entry.getX()) + " · " + (int) entry.getY() + " 条", android.widget.Toast.LENGTH_SHORT).show();
+            }
+            @Override public void onNothingSelected() {}
+        });
         chart.getAxisRight().setEnabled(false);
         chart.getAxisLeft().setDrawGridLines(false);
         chart.getAxisLeft().setAxisMinimum(0f);

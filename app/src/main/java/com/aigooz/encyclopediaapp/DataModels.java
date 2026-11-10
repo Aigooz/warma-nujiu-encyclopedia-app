@@ -51,6 +51,7 @@ public final class DataModels {
         public String account = "";
         public String account_short = "";
         public long sub_lines;
+        public long subtitle_available_lines;
         public long sub_chars;
         public String bvid = "";
         public String aid = "";

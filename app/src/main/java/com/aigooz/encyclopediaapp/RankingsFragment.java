@@ -180,7 +180,15 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
     private void setupRankChart() {
         rankChart.getDescription().setEnabled(false);
         rankChart.getLegend().setEnabled(false);
-        rankChart.setTouchEnabled(false);
+        rankChart.setTouchEnabled(true);
+        rankChart.setScaleEnabled(false);
+        rankChart.setDragEnabled(false);
+        rankChart.setOnChartValueSelectedListener(new com.github.mikephil.charting.listener.OnChartValueSelectedListener() {
+            @Override public void onValueSelected(Entry entry, com.github.mikephil.charting.highlight.Highlight highlight) {
+                if (entry.getData() instanceof String) VideoDetailActivity.open(RankingsFragment.this, (String) entry.getData());
+            }
+            @Override public void onNothingSelected() {}
+        });
         rankChart.setDrawGridBackground(false);
         rankChart.getAxisRight().setEnabled(false);
         rankChart.getAxisLeft().setDrawGridLines(false);
@@ -202,6 +210,23 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         setupAnnualChart();
         setupHonorChart();
         setupClusterChart();
+        enableValueSelection(clockChart);
+        enableValueSelection(weekdayChart);
+        enableValueSelection(annualChart);
+        enableValueSelection(honorChart);
+    }
+
+    private void enableValueSelection(com.github.mikephil.charting.charts.Chart<?> chart) {
+        chart.setTouchEnabled(true);
+        chart.setOnChartValueSelectedListener(new com.github.mikephil.charting.listener.OnChartValueSelectedListener() {
+            @Override public void onValueSelected(Entry entry, com.github.mikephil.charting.highlight.Highlight highlight) {
+                String label = entry instanceof PieEntry ? ((PieEntry) entry).getLabel() : "";
+                if (chart instanceof com.github.mikephil.charting.charts.BarLineChartBase)
+                    label = ((com.github.mikephil.charting.charts.BarLineChartBase<?>) chart).getXAxis().getValueFormatter().getFormattedValue(entry.getX());
+                android.widget.Toast.makeText(requireContext(), label + " · " + UiUtils.number(requireContext(), entry.getY()), android.widget.Toast.LENGTH_SHORT).show();
+            }
+            @Override public void onNothingSelected() {}
+        });
     }
 
     private void setupAnnualChart() {
@@ -368,7 +393,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         for (int i = top.size() - 1; i >= 0; i--) {
             DataModels.Video video = top.get(i);
             String label = video.title.length() > 12 ? video.title.substring(0, 12) + "…" : video.title;
-            entries.add(new BarEntry(labels.size(), (float) video.metric(metric)));
+            entries.add(new BarEntry(labels.size(), (float) video.metric(metric), video.bvid));
             labels.add(label);
         }
         BarDataSet set = new BarDataSet(entries, "榜值");
@@ -404,8 +429,8 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         }
         int count = data.videos.size();
         addInsight(insightContainer, "平均互动率", count == 0 ? "暂无数据" : String.format(java.util.Locale.CHINA, "%.2f%%", interaction / count));
-        addInsight(insightContainer, "字幕覆盖",
-                (int) data.videos.stream().filter(v -> v.sub_lines > 0).count() + " / " + count + " 个视频");
+        addInsight(insightContainer, "可阅读字幕覆盖",
+                (int) data.videos.stream().filter(v -> v.subtitle_available_lines > 0).count() + " / " + count + " 个视频");
         long gap = 0; int intervals = 0;
         for (List<LocalDate> accountDates : dates.values()) {
             java.util.Collections.sort(accountDates);

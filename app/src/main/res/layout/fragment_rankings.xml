@@ -22,6 +22,11 @@
         <TextView android:id="@+id/insightSelection" android:layout_width="match_parent" android:layout_height="wrap_content"
             android:minHeight="40dp" android:gravity="center_vertical" android:textColor="@color/text_secondary" android:textSize="12sp" />
 
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fillViewport="true"
+            android:scrollbars="none">
         <com.google.android.material.button.MaterialButtonToggleGroup
             android:id="@+id/sectionChips"
             android:layout_width="match_parent"
@@ -33,8 +38,9 @@
             <Button
                 android:id="@+id/sectionRankButton"
                 style="@style/Widget.Material3.Button.TonalButton"
-                android:layout_width="0dp"
-                android:layout_height="42dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
                 android:layout_weight="1"
                 android:insetLeft="2dp"
                 android:insetRight="2dp"
@@ -44,8 +50,9 @@
             <Button
                 android:id="@+id/sectionRhythmButton"
                 style="@style/Widget.Material3.Button.OutlinedButton"
-                android:layout_width="0dp"
-                android:layout_height="42dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
                 android:layout_weight="1"
                 android:insetLeft="2dp"
                 android:insetRight="2dp"
@@ -55,8 +62,9 @@
             <Button
                 android:id="@+id/sectionTagButton"
                 style="@style/Widget.Material3.Button.OutlinedButton"
-                android:layout_width="0dp"
-                android:layout_height="42dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
                 android:layout_weight="1"
                 android:insetLeft="2dp"
                 android:insetRight="2dp"
@@ -66,14 +74,16 @@
             <Button
                 android:id="@+id/sectionDeepButton"
                 style="@style/Widget.Material3.Button.OutlinedButton"
-                android:layout_width="0dp"
-                android:layout_height="42dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
                 android:layout_weight="1"
                 android:insetLeft="2dp"
                 android:insetRight="2dp"
                 android:text="深度"
                 android:textSize="12sp" />
         </com.google.android.material.button.MaterialButtonToggleGroup>
+        </HorizontalScrollView>
 
         <LinearLayout
             android:id="@+id/sectionRanking"
@@ -158,7 +168,7 @@
                 <com.github.mikephil.charting.charts.CombinedChart
                     android:id="@+id/annualChart"
                     android:layout_width="match_parent"
-                    android:layout_height="260dp"
+                    android:layout_height="@dimen/chart_height"
                     android:padding="8dp" />
             </com.google.android.material.card.MaterialCardView>
 
@@ -180,7 +190,7 @@
                 <com.github.mikephil.charting.charts.BarChart
                     android:id="@+id/clockChart"
                     android:layout_width="match_parent"
-                    android:layout_height="230dp"
+                    android:layout_height="@dimen/chart_height"
                     android:padding="8dp" />
             </com.google.android.material.card.MaterialCardView>
 
@@ -202,7 +212,7 @@
                 <com.github.mikephil.charting.charts.BarChart
                     android:id="@+id/weekdayChart"
                     android:layout_width="match_parent"
-                    android:layout_height="220dp"
+                    android:layout_height="@dimen/chart_height"
                     android:padding="8dp" />
             </com.google.android.material.card.MaterialCardView>
 
@@ -224,7 +234,7 @@
                 <com.github.mikephil.charting.charts.PieChart
                     android:id="@+id/honorChart"
                     android:layout_width="match_parent"
-                    android:layout_height="250dp"
+                    android:layout_height="@dimen/chart_height"
                     android:padding="8dp" />
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
@@ -298,7 +308,7 @@
                 <com.github.mikephil.charting.charts.ScatterChart
                     android:id="@+id/clusterChart"
                     android:layout_width="match_parent"
-                    android:layout_height="270dp"
+                    android:layout_height="@dimen/chart_height"
                     android:padding="8dp" />
             </com.google.android.material.card.MaterialCardView>
 
