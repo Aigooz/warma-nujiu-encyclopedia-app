@@ -18,7 +18,7 @@
     <color name="nav_item">#6B7785</color>
     <color name="purple">#7C5CFF</color>
     <color name="primary_container">#D7EFF0</color>
-    <color name="launcher_background">#7C5CFF</color>
+    <color name="launcher_background">#18383B</color>
     <!-- 图表专用：网格线与强调色。放在 colors.xml 而不是 Java 里硬编码，
          这样深色模式下能自动跟随 values-night 定义。 -->
     <color name="chart_grid">#1F656D7D</color>

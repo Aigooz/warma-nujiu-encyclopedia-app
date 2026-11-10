@@ -113,13 +113,7 @@ public class VideoDetailActivity extends AppCompatActivity implements DataReposi
         setupChart(peakChart, video);
         findViewById(R.id.openSubtitles).setOnClickListener(v -> showSubtitles(video));
         findViewById(R.id.openDanmaku).setOnClickListener(v -> showDanmaku(video));
-        openBili.setOnClickListener(v -> {
-            try {
-                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.bilibili.com/video/" + video.bvid)));
-            } catch (android.content.ActivityNotFoundException ignored) {
-                android.widget.Toast.makeText(this, "没有可用的浏览器", android.widget.Toast.LENGTH_SHORT).show();
-            }
-        });
+        openBili.setOnClickListener(v -> BilibiliLinks.openVideo(this, video.bvid));
     }
 
     private void showDanmaku(DataModels.Video video) {

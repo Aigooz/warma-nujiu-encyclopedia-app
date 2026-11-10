@@ -299,7 +299,8 @@ public class SettingsFragment extends Fragment implements DataRepository.Listene
             request.setMimeType("application/vnd.android.package-archive");
             request.setAllowedOverMetered(true);
             request.setAllowedOverRoaming(true);
-            request.setDestinationUri(Uri.fromFile(file));
+            request.setDestinationInExternalFilesDir(requireContext(), Environment.DIRECTORY_DOWNLOADS,
+                    "updates/" + download.release.fileName());
             request.addRequestHeader("User-Agent", "Warma-Nujiu-App");
             download.id = downloadManager().enqueue(request);
             saveDownload();

@@ -166,13 +166,7 @@ public class HomeFragment extends Fragment implements DataRepository.Listener {
             name.setText(profile.name);
             fans.setText(UiUtils.number(requireContext(), profile.fans) + " 粉丝 · Lv." + profile.level);
             sign.setText(profile.sign);
-            card.setOnClickListener(v -> {
-                try { startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW,
-                        android.net.Uri.parse("https://space.bilibili.com/" + profile.mid))); }
-                catch (android.content.ActivityNotFoundException ignored) {
-                    android.widget.Toast.makeText(requireContext(), "没有可用的浏览器", android.widget.Toast.LENGTH_SHORT).show();
-                }
-            });
+            card.setOnClickListener(v -> BilibiliLinks.openProfile(requireContext(), profile.mid));
             String avatar = profile.face == null || profile.face.isEmpty() ? profile.avatar : profile.face;
             if (avatar != null) avatar = avatar.replace("http://", "https://");
             Glide.with(this).load(avatar).circleCrop().placeholder(R.drawable.ic_home).into((com.google.android.material.imageview.ShapeableImageView) card.findViewById(R.id.avatar));
