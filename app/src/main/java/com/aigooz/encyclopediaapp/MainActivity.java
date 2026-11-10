@@ -8,6 +8,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import android.widget.LinearLayout;
 import android.widget.ArrayAdapter;
 import android.widget.TextView;
+import android.widget.ImageButton;
 import android.view.View;
 import android.view.MenuItem;
 import com.google.android.material.slider.Slider;
@@ -25,6 +26,7 @@ public class MainActivity extends AppCompatActivity implements DataRepository.Li
     private static Site current = Site.WARMA;
     private int selectedTab;
     private MaterialToolbar toolbar;
+    private ImageButton siteButton;
     private BottomNavigationView bottomNav;
     private final EnumMap<Site, VideoFilter> filters = new EnumMap<>(Site.class);
     private static final int MENU_SITE = 101;
@@ -58,18 +60,33 @@ public class MainActivity extends AppCompatActivity implements DataRepository.Li
         current = parseSite(getSharedPreferences("encyclopedia", MODE_PRIVATE).getString("site", Site.WARMA.name()));
         if (current == null) current = Site.WARMA;
         toolbar = findViewById(R.id.toolbar);
-        toolbar.getMenu().add(0, MENU_SITE, 0, "切换百科").setIcon(R.drawable.ic_warma)
-                .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+        siteButton = new ImageButton(this);
+        int actionSize = (int) (48 * getResources().getDisplayMetrics().density);
+        int iconPadding = (int) (12 * getResources().getDisplayMetrics().density);
+        siteButton.setLayoutParams(new androidx.appcompat.widget.Toolbar.LayoutParams(actionSize, actionSize));
+        siteButton.setPadding(iconPadding, iconPadding, iconPadding, iconPadding);
+        android.util.TypedValue background = new android.util.TypedValue();
+        getTheme().resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, background, true);
+        siteButton.setBackgroundResource(background.resourceId);
+        siteButton.setOnClickListener(v -> {
+            siteButton.animate().cancel();
+            siteButton.setRotationY(0f);
+            switchSite(current == Site.WARMA ? Site.NUJIU : Site.WARMA);
+            siteButton.animate().rotationYBy(360f).setDuration(350)
+                    .withEndAction(() -> siteButton.setRotationY(0f)).start();
+            View content = findViewById(R.id.fragmentContainer);
+            content.animate().cancel();
+            content.setAlpha(0.8f);
+            content.animate().alpha(1f).setDuration(250).start();
+        });
+        MenuItem siteItem = toolbar.getMenu().add(0, MENU_SITE, 0, "切换百科");
+        siteItem.setActionView(siteButton);
+        siteItem.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
         toolbar.getMenu().add(0, MENU_FILTER, 1, "筛选").setIcon(R.drawable.ic_filter)
                 .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
         toolbar.setOnMenuItemClickListener(item -> {
-            if (item.getItemId() == MENU_SITE) {
-                new MaterialAlertDialogBuilder(this).setTitle("切换百科")
-                        .setSingleChoiceItems(new String[]{"Warma 百科", "怒九百科"}, current.ordinal(), (dialog, which) -> {
-                            switchSite(Site.values()[which]); dialog.dismiss();
-                        }).show();
-            } else showFilters();
-            return true;
+            if (item.getItemId() == MENU_FILTER) { showFilters(); return true; }
+            return false;
         });
         bottomNav = findViewById(R.id.bottomNav);
         bottomNav.setOnItemSelectedListener(item -> {
@@ -138,7 +155,10 @@ public class MainActivity extends AppCompatActivity implements DataRepository.Li
         String page = selectedTab == 1 ? "视频库" : selectedTab == 2 ? "榜单" : selectedTab == 3 ? "挑战" : selectedTab == 4 ? "设置" : "全景";
         toolbar.setTitle(current.title);
         toolbar.setSubtitle(page + (selectedTab < 3 && filter().isActive() ? " · 已筛选" : ""));
-        toolbar.getMenu().findItem(MENU_SITE).setIcon(current == Site.WARMA ? R.drawable.ic_warma : R.drawable.ic_nujiu);
+        siteButton.setImageResource(current == Site.WARMA ? R.drawable.ic_warma : R.drawable.ic_nujiu);
+        String switchLabel = current == Site.WARMA ? "切换到怒九百科" : "切换到 Warma 百科";
+        siteButton.setContentDescription(switchLabel);
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(siteButton, switchLabel);
         toolbar.getMenu().findItem(MENU_FILTER).setVisible(selectedTab < 3);
     }
 
