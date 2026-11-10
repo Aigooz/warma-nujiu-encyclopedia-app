@@ -290,6 +290,7 @@ public class VideoDetailActivity extends AppCompatActivity implements DataReposi
         chart.setDragEnabled(false);
         chart.setScaleEnabled(false);
         chart.setPinchZoom(false);
+        chart.setDoubleTapToZoomEnabled(false);
         chart.setOnChartValueSelectedListener(new com.github.mikephil.charting.listener.OnChartValueSelectedListener() {
             @Override public void onValueSelected(Entry entry, com.github.mikephil.charting.highlight.Highlight highlight) {
                 android.widget.Toast.makeText(VideoDetailActivity.this,
@@ -306,10 +307,11 @@ public class VideoDetailActivity extends AppCompatActivity implements DataReposi
         axis.setPosition(XAxis.XAxisPosition.BOTTOM);
         axis.setDrawGridLines(false);
         axis.setTextColor(textColor);
+        axis.setAvoidFirstLastClipping(true);
         axis.setValueFormatter(new com.github.mikephil.charting.formatter.ValueFormatter() {
             @Override public String getFormattedValue(float value) { return UiUtils.timestamp(value); }
         });
-        axis.setLabelCount(4, false);
+        axis.setLabelCount(3, false);
         List<Entry> entries = new ArrayList<>();
         for (List<Double> point : video.dm_profile) {
             // The source exporter multiplies the second-based bucket position by 10.

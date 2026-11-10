@@ -93,10 +93,14 @@ public class HomeFragment extends Fragment implements DataRepository.Listener {
         chart.getAxisLeft().setDrawGridLines(false);
         chart.getAxisLeft().setAxisMinimum(0f);
         chart.getAxisLeft().setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary));
+        chart.getAxisLeft().setValueFormatter(new com.github.mikephil.charting.formatter.ValueFormatter() {
+            @Override public String getFormattedValue(float value) { return UiUtils.number(requireContext(), value); }
+        });
         XAxis axis = chart.getXAxis();
         axis.setPosition(XAxis.XAxisPosition.BOTTOM);
         axis.setDrawGridLines(false);
         axis.setGranularity(1f);
+        axis.setAvoidFirstLastClipping(true);
         axis.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary));
     }
 
@@ -221,7 +225,9 @@ public class HomeFragment extends Fragment implements DataRepository.Listener {
         set.setColor(ContextCompat.getColor(requireContext(), R.color.blue));
         set.setDrawValues(false);
         yearlyChart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
-        yearlyChart.getXAxis().setLabelCount(Math.min(6, labels.size()), false);
+        int count = Math.max(2, (int) (getResources().getConfiguration().screenWidthDp
+                / (75f * Math.max(1f, getResources().getConfiguration().fontScale))));
+        yearlyChart.getXAxis().setLabelCount(Math.min(count, Math.max(2, labels.size())), false);
         yearlyChart.setData(new BarData(set));
         yearlyChart.invalidate();
     }

@@ -117,7 +117,7 @@
                 <com.github.mikephil.charting.charts.HorizontalBarChart
                     android:id="@+id/rankChart"
                     android:layout_width="match_parent"
-                    android:layout_height="280dp"
+                    android:layout_height="@dimen/chart_height_ranking"
                     android:padding="8dp" />
             </com.google.android.material.card.MaterialCardView>
 
@@ -237,6 +237,11 @@
                     android:layout_height="@dimen/chart_height"
                     android:padding="8dp" />
             </com.google.android.material.card.MaterialCardView>
+            <LinearLayout
+                android:id="@+id/honorLegend"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
         </LinearLayout>
 
         <LinearLayout

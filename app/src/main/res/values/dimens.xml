@@ -6,5 +6,6 @@
     <integer name="content_max_width_dp">0</integer>
     <!-- 图表高度 -->
     <dimen name="chart_height">230dp</dimen>
+    <dimen name="chart_height_ranking">320dp</dimen>
     <dimen name="chart_height_detail">220dp</dimen>
 </resources>

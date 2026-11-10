@@ -65,6 +65,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
     private BarChart clockChart;
     private BarChart weekdayChart;
     private PieChart honorChart;
+    private LinearLayout honorLegend;
     private ScatterChart clusterChart;
     private ChipGroup tagCloud;
     private LinearLayout tagAffinityContainer;
@@ -127,6 +128,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         clockChart = view.findViewById(R.id.clockChart);
         weekdayChart = view.findViewById(R.id.weekdayChart);
         honorChart = view.findViewById(R.id.honorChart);
+        honorLegend = view.findViewById(R.id.honorLegend);
         clusterChart = view.findViewById(R.id.clusterChart);
         tagCloud = view.findViewById(R.id.tagCloud);
         tagAffinityContainer = view.findViewById(R.id.tagAffinityContainer);
@@ -183,6 +185,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         rankChart.setTouchEnabled(true);
         rankChart.setScaleEnabled(false);
         rankChart.setDragEnabled(false);
+        rankChart.setDoubleTapToZoomEnabled(false);
         rankChart.setOnChartValueSelectedListener(new com.github.mikephil.charting.listener.OnChartValueSelectedListener() {
             @Override public void onValueSelected(Entry entry, com.github.mikephil.charting.highlight.Highlight highlight) {
                 if (entry.getData() instanceof String) VideoDetailActivity.open(RankingsFragment.this, (String) entry.getData());
@@ -195,6 +198,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         rankChart.getAxisLeft().setAxisMinimum(0f);
         rankChart.getAxisLeft().setTextColor(axisColor());
         rankChart.getAxisLeft().setTextSize(10f);
+        rankChart.getAxisLeft().setValueFormatter(numberFormatter());
         rankChart.setExtraBottomOffset(8f);
         XAxis axis = rankChart.getXAxis();
         axis.setPosition(XAxis.XAxisPosition.BOTTOM);
@@ -235,20 +239,26 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         annualChart.setDrawBarShadow(false);
         annualChart.setHighlightFullBarEnabled(false);
         annualChart.setPinchZoom(false);
+        annualChart.setDragEnabled(false);
+        annualChart.setScaleEnabled(false);
+        annualChart.setDoubleTapToZoomEnabled(false);
         annualChart.getAxisRight().setEnabled(false);
         annualChart.getAxisLeft().setAxisMinimum(0f);
         annualChart.getAxisLeft().setDrawGridLines(false);
         annualChart.getAxisLeft().setTextColor(axisColor());
         annualChart.getAxisLeft().setTextSize(10f);
+        annualChart.getAxisLeft().setValueFormatter(numberFormatter());
         annualChart.getXAxis().setPosition(XAxis.XAxisPosition.BOTTOM);
         annualChart.getXAxis().setDrawGridLines(false);
         annualChart.getXAxis().setGranularity(1f);
         annualChart.getXAxis().setTextColor(axisColor());
         annualChart.getXAxis().setTextSize(10f);
+        annualChart.getXAxis().setAvoidFirstLastClipping(true);
         annualChart.getLegend().setEnabled(true);
         annualChart.getLegend().setHorizontalAlignment(Legend.LegendHorizontalAlignment.CENTER);
         annualChart.getLegend().setTextColor(axisColor());
         annualChart.getLegend().setTextSize(11f);
+        annualChart.getLegend().setWordWrapEnabled(true);
         annualChart.setDrawOrder(new CombinedChart.DrawOrder[]{
                 CombinedChart.DrawOrder.BAR, CombinedChart.DrawOrder.LINE
         });
@@ -259,10 +269,9 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         honorChart.setDrawHoleEnabled(true);
         honorChart.setHoleColor(Color.TRANSPARENT);
         honorChart.setCenterTextColor(axisColor());
-        honorChart.getLegend().setEnabled(true);
-        honorChart.getLegend().setHorizontalAlignment(Legend.LegendHorizontalAlignment.CENTER);
-        honorChart.getLegend().setTextColor(axisColor());
-        honorChart.getLegend().setTextSize(11f);
+        honorChart.getLegend().setEnabled(false);
+        honorChart.setDrawEntryLabels(false);
+        honorChart.setRotationEnabled(false);
     }
 
     private void setupClusterChart() {
@@ -284,6 +293,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         clusterChart.getLegend().setHorizontalAlignment(Legend.LegendHorizontalAlignment.CENTER);
         clusterChart.getLegend().setTextColor(axisColor());
         clusterChart.getLegend().setTextSize(11f);
+        clusterChart.getLegend().setWordWrapEnabled(true);
     }
 
     private void setupBarChart(BarChart chart) {
@@ -292,17 +302,36 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         chart.setTouchEnabled(false);
         chart.setDrawGridBackground(false);
         chart.setPinchZoom(false);
+        chart.setDragEnabled(false);
+        chart.setScaleEnabled(false);
+        chart.setDoubleTapToZoomEnabled(false);
         chart.getAxisRight().setEnabled(false);
         chart.getAxisLeft().setAxisMinimum(0f);
         chart.getAxisLeft().setDrawGridLines(false);
         chart.getAxisLeft().setTextColor(axisColor());
         chart.getAxisLeft().setTextSize(10f);
+        chart.getAxisLeft().setValueFormatter(numberFormatter());
         XAxis axis = chart.getXAxis();
         axis.setPosition(XAxis.XAxisPosition.BOTTOM);
         axis.setDrawGridLines(false);
         axis.setGranularity(1f);
         axis.setTextColor(axisColor());
         axis.setTextSize(10f);
+        axis.setAvoidFirstLastClipping(true);
+    }
+
+    private com.github.mikephil.charting.formatter.ValueFormatter numberFormatter() {
+        return new com.github.mikephil.charting.formatter.ValueFormatter() {
+            @Override public String getFormattedValue(float value) {
+                return UiUtils.number(requireContext(), value);
+            }
+        };
+    }
+
+    private int axisLabelCount(int maximum) {
+        float width = getResources().getConfiguration().screenWidthDp;
+        float fontScale = getResources().getConfiguration().fontScale;
+        return Math.max(2, Math.min(maximum, (int) (width / (75f * Math.max(1f, fontScale)))));
     }
 
     private int axisColor() {
@@ -392,9 +421,8 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         List<String> labels = new ArrayList<>();
         for (int i = top.size() - 1; i >= 0; i--) {
             DataModels.Video video = top.get(i);
-            String label = video.title.length() > 12 ? video.title.substring(0, 12) + "…" : video.title;
             entries.add(new BarEntry(labels.size(), (float) video.metric(metric), video.bvid));
-            labels.add(label);
+            labels.add("#" + (i + 1));
         }
         BarDataSet set = new BarDataSet(entries, "榜值");
         set.setColor(ContextCompat.getColor(requireContext(), R.color.primary));
@@ -479,7 +507,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         data.setData(new BarData(barSet));
         data.setData(new LineData(lineSet));
         annualChart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
-        annualChart.getXAxis().setLabelCount(Math.min(8, labels.size()), false);
+        annualChart.getXAxis().setLabelCount(axisLabelCount(Math.min(8, labels.size())), false);
         annualChart.setData(data);
         annualChart.invalidate();
     }
@@ -503,7 +531,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         set.setColor(ContextCompat.getColor(requireContext(), R.color.blue));
         set.setDrawValues(false);
         clockChart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
-        clockChart.getXAxis().setLabelCount(8, false);
+        clockChart.getXAxis().setLabelCount(axisLabelCount(8), false);
         clockChart.setData(new BarData(set));
         clockChart.invalidate();
     }
@@ -525,11 +553,13 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         set.setColor(ContextCompat.getColor(requireContext(), R.color.orange));
         set.setDrawValues(false);
         weekdayChart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
+        weekdayChart.getXAxis().setLabelCount(axisLabelCount(7), false);
         weekdayChart.setData(new BarData(set));
         weekdayChart.invalidate();
     }
 
     private void renderHonors(DataModels.Dataset dataset) {
+        honorLegend.removeAllViews();
         Map<String, Integer> honors = new LinkedHashMap<>();
         for (DataModels.Video video : dataset.data.videos) {
             for (DataModels.Honor honor : video.honors) {
@@ -541,8 +571,24 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
             }
         }
         List<PieEntry> entries = new ArrayList<>();
+        int colorIndex = 0;
         for (Map.Entry<String, Integer> entry : honors.entrySet()) {
             entries.add(new PieEntry(entry.getValue(), entry.getKey()));
+            LinearLayout row = new LinearLayout(requireContext());
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            int spacing = (int) (8 * getResources().getDisplayMetrics().density);
+            row.setPadding(spacing, spacing / 2, spacing, spacing / 2);
+            View swatch = new View(requireContext());
+            swatch.setBackgroundColor(ContextCompat.getColor(requireContext(), CHART_COLORS[colorIndex++ % CHART_COLORS.length]));
+            row.addView(swatch, new LinearLayout.LayoutParams(spacing * 2, spacing * 2));
+            TextView text = new TextView(requireContext());
+            text.setText(entry.getKey() + " · " + entry.getValue());
+            text.setTextColor(axisColor());
+            LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
+            textParams.setMarginStart(spacing);
+            row.addView(text, textParams);
+            honorLegend.addView(row);
         }
         if (entries.isEmpty()) {
             honorChart.setCenterText("暂无荣誉数据");
