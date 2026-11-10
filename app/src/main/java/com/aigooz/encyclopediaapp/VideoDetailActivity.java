@@ -111,6 +111,7 @@ public class VideoDetailActivity extends AppCompatActivity implements DataReposi
             tagChips.addView(chip);
         }
         setupChart(peakChart, video);
+        findViewById(R.id.openSubtitles).setOnClickListener(v -> showSubtitles(video));
         openBili.setOnClickListener(v -> {
             try {
                 startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.bilibili.com/video/" + video.bvid)));
@@ -118,6 +119,63 @@ public class VideoDetailActivity extends AppCompatActivity implements DataReposi
                 android.widget.Toast.makeText(this, "没有可用的浏览器", android.widget.Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    private void showSubtitles(DataModels.Video video) {
+        if (video.bvid == null || !video.bvid.matches("BV[0-9A-Za-z]{10}")) return;
+        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+        TextView content = new TextView(this);
+        int padding = (int) (20 * getResources().getDisplayMetrics().density);
+        content.setPadding(padding, padding, padding, padding);
+        content.setTextIsSelectable(true);
+        content.setText("正在加载字幕…");
+        scroll.addView(content);
+        androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("字幕正文")
+                .setView(scroll)
+                .setPositiveButton("关闭", null)
+                .create();
+        dialog.show();
+        String url = site.dataUrl.substring(0, site.dataUrl.lastIndexOf('/') + 1)
+                + "subtitles/" + video.bvid + ".json";
+        new Thread(() -> {
+            String text;
+            java.net.HttpURLConnection connection = null;
+            try {
+                connection = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
+                connection.setConnectTimeout(10000);
+                connection.setReadTimeout(20000);
+                int status = connection.getResponseCode();
+                if (status == 404) {
+                    text = "暂无可用的字幕正文";
+                } else if (status != 200) {
+                    text = "字幕加载失败，请稍后重试";
+                } else {
+                    try (java.io.InputStream input = connection.getInputStream();
+                         java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream()) {
+                        byte[] buffer = new byte[8192];
+                        int count;
+                        while ((count = input.read(buffer)) != -1) {
+                            bytes.write(buffer, 0, count);
+                            if (bytes.size() > 4 * 1024 * 1024) throw new java.io.IOException("Subtitle too large");
+                        }
+                        org.json.JSONArray lines = new org.json.JSONObject(bytes.toString("UTF-8")).getJSONArray("lines");
+                        StringBuilder result = new StringBuilder();
+                        for (int i = 0; i < lines.length(); i++) {
+                            if (i > 0) result.append('\n');
+                            result.append(lines.getString(i));
+                        }
+                        text = result.length() == 0 ? "暂无可用的字幕正文" : result.toString();
+                    }
+                }
+            } catch (Exception e) {
+                text = "字幕加载失败，请检查网络后重试";
+            } finally {
+                if (connection != null) connection.disconnect();
+            }
+            String result = text;
+            runOnUiThread(() -> { if (!isFinishing() && dialog.isShowing()) content.setText(result); });
+        }).start();
     }
 
     private DataModels.Video findVideo(DataModels.Dataset dataset, String bvid) {
