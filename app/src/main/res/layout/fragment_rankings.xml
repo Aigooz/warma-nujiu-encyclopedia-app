@@ -72,6 +72,18 @@
                 android:textSize="12sp" />
 
             <Button
+                android:id="@+id/sectionHeatButton"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:layout_weight="1"
+                android:insetLeft="2dp"
+                android:insetRight="2dp"
+                android:text="热度"
+                android:textSize="12sp" />
+
+            <Button
                 android:id="@+id/sectionDeepButton"
                 style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="wrap_content"
@@ -81,6 +93,18 @@
                 android:insetLeft="2dp"
                 android:insetRight="2dp"
                 android:text="深度"
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/sectionWeiboButton"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:layout_weight="1"
+                android:insetLeft="2dp"
+                android:insetRight="2dp"
+                android:text="微博"
                 android:textSize="12sp" />
         </com.google.android.material.button.MaterialButtonToggleGroup>
         </HorizontalScrollView>
@@ -212,7 +236,51 @@
                 <com.github.mikephil.charting.charts.BarChart
                     android:id="@+id/weekdayChart"
                     android:layout_width="match_parent"
-                    android:layout_height="@dimen/chart_height"
+                    android:layout_height="@dimen/chart_height_compact"
+                    android:padding="8dp" />
+            </com.google.android.material.card.MaterialCardView>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:text="月度投稿分布"
+                android:textAppearance="@style/TextAppearance.Material3.TitleLarge" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                app:cardBackgroundColor="?attr/colorSurface"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="0dp">
+
+                <com.github.mikephil.charting.charts.BarChart
+                    android:id="@+id/monthChart"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/chart_height_compact"
+                    android:padding="8dp" />
+            </com.google.android.material.card.MaterialCardView>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:text="投稿间隔分层"
+                android:textAppearance="@style/TextAppearance.Material3.TitleLarge" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                app:cardBackgroundColor="?attr/colorSurface"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="0dp">
+
+                <com.github.mikephil.charting.charts.HorizontalBarChart
+                    android:id="@+id/gapChart"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/chart_height_compact"
                     android:padding="8dp" />
             </com.google.android.material.card.MaterialCardView>
 
@@ -222,6 +290,13 @@
                 android:layout_marginTop="18dp"
                 android:text="荣誉里程碑"
                 android:textAppearance="@style/TextAppearance.Material3.TitleLarge" />
+
+            <LinearLayout
+                android:id="@+id/honorTimeline"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:orientation="vertical" />
 
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
@@ -234,7 +309,7 @@
                 <com.github.mikephil.charting.charts.PieChart
                     android:id="@+id/honorChart"
                     android:layout_width="match_parent"
-                    android:layout_height="@dimen/chart_height"
+                    android:layout_height="@dimen/chart_height_compact"
                     android:padding="8dp" />
             </com.google.android.material.card.MaterialCardView>
             <LinearLayout
@@ -242,6 +317,28 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:text="时长 × 点赞率"
+                android:textAppearance="@style/TextAppearance.Material3.TitleLarge" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                app:cardBackgroundColor="?attr/colorSurface"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="0dp">
+
+                <com.github.mikephil.charting.charts.BarChart
+                    android:id="@+id/durationChart"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/chart_height_compact"
+                    android:padding="8dp" />
+            </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
 
         <LinearLayout
@@ -289,6 +386,108 @@
         </LinearLayout>
 
         <LinearLayout
+            android:id="@+id/sectionHeat"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:text="互动构成"
+                android:textAppearance="@style/TextAppearance.Material3.TitleLarge" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                app:cardBackgroundColor="?attr/colorSurface"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="0dp">
+
+                <com.github.mikephil.charting.charts.PieChart
+                    android:id="@+id/engageChart"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/chart_height_compact"
+                    android:padding="8dp" />
+            </com.google.android.material.card.MaterialCardView>
+
+            <LinearLayout
+                android:id="@+id/engageLegend"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:text="年度播放趋势"
+                android:textAppearance="@style/TextAppearance.Material3.TitleLarge" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                app:cardBackgroundColor="?attr/colorSurface"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="0dp">
+
+                <com.github.mikephil.charting.charts.BarChart
+                    android:id="@+id/yearViewsChart"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/chart_height_compact"
+                    android:padding="8dp" />
+            </com.google.android.material.card.MaterialCardView>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:text="类型播放贡献"
+                android:textAppearance="@style/TextAppearance.Material3.TitleLarge" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                app:cardBackgroundColor="?attr/colorSurface"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="0dp">
+
+                <com.github.mikephil.charting.charts.HorizontalBarChart
+                    android:id="@+id/typeViewsChart"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/chart_height_compact"
+                    android:padding="8dp" />
+            </com.google.android.material.card.MaterialCardView>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:text="播放量 × 点赞率"
+                android:textAppearance="@style/TextAppearance.Material3.TitleLarge" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                app:cardBackgroundColor="?attr/colorSurface"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="0dp">
+
+                <com.github.mikephil.charting.charts.ScatterChart
+                    android:id="@+id/engageScatterChart"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/chart_height"
+                    android:padding="8dp" />
+            </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+
+        <LinearLayout
             android:id="@+id/sectionDeep"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -332,6 +531,51 @@
 
             <LinearLayout
                 android:id="@+id/similarList"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:orientation="vertical" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:text="类型 × 年代结构"
+                android:textAppearance="@style/TextAppearance.Material3.TitleLarge" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                app:cardBackgroundColor="?attr/colorSurface"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="0dp">
+
+                <com.github.mikephil.charting.charts.HorizontalBarChart
+                    android:id="@+id/structureChart"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/chart_height"
+                    android:padding="8dp" />
+            </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/sectionWeibo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/weiboSummary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp" />
+
+            <LinearLayout
+                android:id="@+id/weiboList"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"

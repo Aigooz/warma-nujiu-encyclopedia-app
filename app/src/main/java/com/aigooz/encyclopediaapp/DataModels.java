@@ -24,7 +24,35 @@ public final class DataModels {
         public String insights_generated_at = "";
         public Map<String, Follower> followers = new LinkedHashMap<>();
         public Map<String, Profile> profiles = new LinkedHashMap<>();
+        public Map<String, WeiboAccount> weibo = new LinkedHashMap<>();
         public List<Video> videos = new ArrayList<>();
+    }
+
+    /** 微博账号快照：只保留展示需要的字段，避免把整段 HTML 塞进内存。 */
+    public static class WeiboAccount {
+        public String uid = "";
+        public String fetched_at = "";
+        public int count;
+        public List<WeiboPost> posts = new ArrayList<>();
+    }
+
+    public static class WeiboPost {
+        public String id = "";
+        public String date = "";
+        public String text = "";
+        public double reposts;
+        public double comments;
+        public double likes;
+        public String region = "";
+        public String url = "";
+        public List<String> pics = new ArrayList<>();
+
+        /** 微博正文里可能带 [表情] 标记，列表里截断显示。 */
+        public String preview(int limit) {
+            if (text == null) return "";
+            String flat = text.replace('\n', ' ').trim();
+            return flat.length() <= limit ? flat : flat.substring(0, limit) + "…";
+        }
     }
 
     public static class Profile {

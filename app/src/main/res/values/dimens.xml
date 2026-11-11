@@ -6,6 +6,8 @@
     <integer name="content_max_width_dp">0</integer>
     <!-- 图表高度 -->
     <dimen name="chart_height">230dp</dimen>
+    <!-- 手机端紧凑图表：用于并排/次要模块，避免一屏内卡片过高需要频繁滚动。 -->
+    <dimen name="chart_height_compact">184dp</dimen>
     <dimen name="chart_height_ranking">320dp</dimen>
     <dimen name="chart_height_detail">220dp</dimen>
 </resources>
