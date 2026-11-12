@@ -13,6 +13,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.bumptech.glide.Glide;
 import com.google.android.material.appbar.MaterialToolbar;
 
+import java.util.ArrayList;
+
 /**
  * 微博详情：正文、配图与评论区全部在应用内渲染。
  *
@@ -65,7 +67,6 @@ public class WeiboDetailActivity extends AppCompatActivity implements DataReposi
         LinearLayout pics = findViewById(R.id.weiboPics);
         TextView meta = findViewById(R.id.weiboMeta);
         TextView text = findViewById(R.id.weiboText);
-        TextView metrics = findViewById(R.id.weiboMetrics);
         TextView header = findViewById(R.id.commentHeader);
 
         DataModels.Dataset dataset = DataRepository.get().current(site);
@@ -78,26 +79,20 @@ public class WeiboDetailActivity extends AppCompatActivity implements DataReposi
             return;
         }
         header.setVisibility(View.VISIBLE);
+        DataModels.WeiboAccount owner = findOwner(dataset, postId);
+        String author = owner == null || owner.name == null || owner.name.isEmpty()
+                ? "" : owner.name;
+        ((TextView) findViewById(R.id.detailAuthor)).setText(author);
+        WeiboImages.load(this, findViewById(R.id.detailAvatar),
+                owner == null ? "" : owner.avatar, R.drawable.ic_avatar_placeholder);
         meta.setText(post.date + (post.region == null || post.region.isEmpty() ? "" : " · " + post.region));
         text.setText(post.text);
-        metrics.setText(String.format(java.util.Locale.CHINA,
-                "赞 %s · 评论 %s · 转发 %s",
-                UiUtils.number(this, post.likes),
-                UiUtils.number(this, post.comments),
-                UiUtils.number(this, post.reposts)));
+        ((TextView) findViewById(R.id.weiboReposts)).setText("转发 " + UiUtils.number(this, post.reposts));
+        ((TextView) findViewById(R.id.weiboComments)).setText("评论 " + post.commentTotal());
+        ((TextView) findViewById(R.id.weiboLikes)).setText("赞 " + UiUtils.number(this, post.likes));
 
         pics.removeAllViews();
-        for (String url : post.pics) {
-            ImageView image = new ImageView(this);
-            image.setAdjustViewBounds(true);
-            image.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, (int) (200 * getResources().getDisplayMetrics().density));
-            params.topMargin = (int) (8 * getResources().getDisplayMetrics().density);
-            image.setLayoutParams(params);
-            Glide.with(this).load(url.replace("http://", "https://")).into(image);
-            pics.addView(image);
-        }
+        addImageGrid(pics, post.pics);
 
         container.removeAllViews();
         header.setText("评论 · " + post.commentTotal() + " 条");
@@ -111,6 +106,8 @@ public class WeiboDetailActivity extends AppCompatActivity implements DataReposi
         for (DataModels.WeiboComment comment : post.comments_data) {
             View card = LayoutInflater.from(this).inflate(R.layout.item_weibo_comment, container, false);
             ((TextView) card.findViewById(R.id.commentUser)).setText(comment.user);
+            WeiboImages.load(this, card.findViewById(R.id.commentAvatar),
+                    comment.avatar, R.drawable.ic_avatar_placeholder);
             ((TextView) card.findViewById(R.id.commentText)).setText(comment.text);
             ((TextView) card.findViewById(R.id.commentMeta))
                     .setText(commentMeta(comment.date, comment.region, comment.likes));
@@ -149,6 +146,61 @@ public class WeiboDetailActivity extends AppCompatActivity implements DataReposi
         if (builder.length() > 0) builder.append(" · ");
         builder.append("赞 ").append(UiUtils.number(this, likes));
         return builder.toString();
+    }
+
+    /** 与列表一致的三列配图网格，点开进入应用内看图。 */
+    private void addImageGrid(LinearLayout container, java.util.List<String> images) {
+        if (images == null || images.isEmpty()) return;
+        int dp = (int) getResources().getDisplayMetrics().density;
+        int columns = images.size() == 1 ? 1 : images.size() <= 4 ? 2 : 3;
+        int limit = Math.min(images.size(), 9);
+        int gap = 5 * dp;
+        for (int start = 0; start < limit; start += columns) {
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, -2);
+            if (start > 0) rowParams.topMargin = gap;
+            row.setLayoutParams(rowParams);
+            for (int column = 0; column < columns; column++) {
+                int index = start + column;
+                if (index >= limit) {
+                    View spacer = new View(this);
+                    LinearLayout.LayoutParams spacerParams = new LinearLayout.LayoutParams(0, 1, 1f);
+                    if (column > 0) spacerParams.setMarginStart(gap);
+                    spacer.setLayoutParams(spacerParams);
+                    row.addView(spacer);
+                    continue;
+                }
+                View tile = LayoutInflater.from(this).inflate(R.layout.item_weibo_image, row, false);
+                int height = columns == 1 ? 240 * dp : (columns == 2 ? 150 * dp : 110 * dp);
+                LinearLayout.LayoutParams tileParams = new LinearLayout.LayoutParams(0, height, 1f);
+                if (column > 0) tileParams.setMarginStart(gap);
+                tile.setLayoutParams(tileParams);
+                ImageView image = tile.findViewById(R.id.weiboImage);
+                WeiboImages.load(this, image, images.get(index), 0);
+                final int position = index;
+                tile.setOnClickListener(v -> WeiboImageActivity.open(
+                        this, new ArrayList<>(images), position));
+                row.addView(tile);
+            }
+            container.addView(row);
+        }
+    }
+
+    private DataModels.WeiboAccount findOwner(DataModels.Dataset dataset, String id) {
+        if (id == null) return null;
+        for (Site candidate : Site.values()) {
+            DataModels.Dataset source = dataset != null && dataset.site == candidate
+                    ? dataset : DataRepository.get().current(candidate);
+            if (source == null || source.data == null || source.data.weibo == null) continue;
+            for (DataModels.WeiboAccount account : source.data.weibo.values()) {
+                if (account == null || account.posts == null) continue;
+                for (DataModels.WeiboPost post : account.posts) {
+                    if (id.equals(post.id)) return account;
+                }
+            }
+        }
+        return null;
     }
 
     private DataModels.WeiboPost findPost(DataModels.Dataset dataset, String id) {

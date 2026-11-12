@@ -32,6 +32,7 @@ public final class DataModels {
     public static class WeiboAccount {
         public String uid = "";
         public String name = "";
+        public String avatar = "";
         public String fetched_at = "";
         public boolean complete;
         public int count;
@@ -69,6 +70,7 @@ public final class DataModels {
 
     public static class WeiboComment {
         public String user = "";
+        public String avatar = "";
         public String date = "";
         public String text = "";
         public double likes;

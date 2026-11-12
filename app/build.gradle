@@ -44,7 +44,8 @@ android {
         versionCode 16
         versionCode 17
         versionCode 18
-        versionName "1.7.1"
+        versionCode 19
+        versionName "1.7.2"
     }
 
     buildTypes {

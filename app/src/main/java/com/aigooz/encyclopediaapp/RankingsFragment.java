@@ -1102,27 +1102,11 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
             totalPosts += posts.size();
             for (DataModels.WeiboPost post : posts) totalComments += post.commentTotal();
 
-            TextView heading = new TextView(requireContext());
-            String name = account.name == null || account.name.isEmpty() ? key : account.name;
-            heading.setText(name + " · 本地归档 " + posts.size() + " 条");
-            heading.setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_TitleMedium);
-            int margin = (int) (10 * getResources().getDisplayMetrics().density);
-            LinearLayout.LayoutParams headingParams = new LinearLayout.LayoutParams(-1, -2);
-            headingParams.topMargin = weiboList.getChildCount() == 0 ? 0 : margin * 2;
-            heading.setLayoutParams(headingParams);
-            weiboList.addView(heading);
+            weiboList.addView(weiboAccountHeader(account, key, posts.size()));
 
             for (DataModels.WeiboPost post : posts) {
-                if (rendered++ >= 60) break;
-                View card = LayoutInflater.from(requireContext()).inflate(R.layout.item_insight, weiboList, false);
-                TextView title = card.findViewById(R.id.title);
-                TextView body = card.findViewById(R.id.body);
-                title.setText(post.date + (post.region == null || post.region.isEmpty() ? "" : " · " + post.region));
-                body.setText(post.preview(160) + "\n赞 " + UiUtils.number(requireContext(), post.likes)
-                        + " · 转发 " + UiUtils.number(requireContext(), post.reposts)
-                        + " · 已存评论 " + post.commentTotal() + " 条");
-                card.setOnClickListener(v -> WeiboDetailActivity.open(this, dataset.site, post.id));
-                weiboList.addView(card);
+                if (rendered++ >= 40) break;
+                weiboList.addView(weiboPostCard(account, key, post, dataset.site));
             }
         }
         if (totalPosts == 0) {
@@ -1131,6 +1115,137 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         }
         weiboSummary.setText("两位博主本地归档 " + totalPosts + " 条微博 · " + totalComments
                 + " 条评论（含回复）· 点开即可在应用内查看");
+    }
+
+    /** 博主信息头：头像 + 昵称 + 归档数量。 */
+    private View weiboAccountHeader(DataModels.WeiboAccount account, String key, int postCount) {
+        LinearLayout row = new LinearLayout(requireContext());
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        int dp = (int) getResources().getDisplayMetrics().density;
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+        params.topMargin = weiboList.getChildCount() == 0 ? 0 : 18 * dp;
+        row.setLayoutParams(params);
+
+        com.google.android.material.imageview.ShapeableImageView avatar =
+                new com.google.android.material.imageview.ShapeableImageView(requireContext());
+        int size = 34 * dp;
+        avatar.setLayoutParams(new LinearLayout.LayoutParams(size, size));
+        avatar.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
+        WeiboImages.load(requireContext(), avatar, account.avatar, R.drawable.ic_avatar_placeholder);
+        row.addView(avatar);
+
+        LinearLayout texts = new LinearLayout(requireContext());
+        texts.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(0, -2, 1f);
+        textParams.setMarginStart(10 * dp);
+        texts.setLayoutParams(textParams);
+        TextView name = new TextView(requireContext());
+        name.setText(account.name == null || account.name.isEmpty() ? key : account.name);
+        name.setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_TitleMedium);
+        texts.addView(name);
+        TextView count = new TextView(requireContext());
+        count.setText("本地归档 " + postCount + " 条");
+        count.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary));
+        count.setTextSize(11f);
+        texts.addView(count);
+        row.addView(texts);
+        return row;
+    }
+
+    /** 单条微博卡片：正文采用微博信息流结构，带九宫格配图与互动栏。 */
+    private View weiboPostCard(DataModels.WeiboAccount account, String key,
+                               DataModels.WeiboPost post, Site site) {
+        View card = LayoutInflater.from(requireContext())
+                .inflate(R.layout.item_weibo_post, weiboList, false);
+        int dp = (int) getResources().getDisplayMetrics().density;
+        ((TextView) card.findViewById(R.id.postAuthor))
+                .setText(account.name == null || account.name.isEmpty() ? key : account.name);
+        ((TextView) card.findViewById(R.id.postTime)).setText(post.date);
+        WeiboImages.load(requireContext(), card.findViewById(R.id.postAvatar),
+                account.avatar, R.drawable.ic_avatar_placeholder);
+
+        TextView region = card.findViewById(R.id.postRegion);
+        if (post.region == null || post.region.isEmpty()) {
+            region.setVisibility(View.GONE);
+        } else {
+            region.setVisibility(View.VISIBLE);
+            region.setText(post.region);
+        }
+
+        ((TextView) card.findViewById(R.id.postText)).setText(linkifyWeiboText(post.text));
+        ((TextView) card.findViewById(R.id.postRepost)).setText(UiUtils.number(requireContext(), post.reposts));
+        ((TextView) card.findViewById(R.id.postComment)).setText(String.valueOf(post.commentTotal()));
+        ((TextView) card.findViewById(R.id.postLike)).setText(UiUtils.number(requireContext(), post.likes));
+
+        LinearLayout pics = card.findViewById(R.id.postPics);
+        List<String> images = post.pics == null ? new ArrayList<>() : post.pics;
+        if (!images.isEmpty()) {
+            pics.setVisibility(View.VISIBLE);
+            addWeiboImageGrid(pics, images, dp);
+        } else {
+            pics.setVisibility(View.GONE);
+        }
+
+        card.setOnClickListener(v -> WeiboDetailActivity.open(this, site, post.id));
+        return card;
+    }
+
+    /**
+     * 配图网格：1 张大图，2–4 张两列，更多按三列铺开（模仿微博九宫格）。
+     */
+    private void addWeiboImageGrid(LinearLayout container, List<String> images, int dp) {
+        int columns = images.size() == 1 ? 1 : images.size() <= 4 ? 2 : 3;
+        int limit = Math.min(images.size(), 9);
+        int gap = 4 * dp;
+        for (int start = 0; start < limit; start += columns) {
+            LinearLayout row = new LinearLayout(requireContext());
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, -2);
+            if (start > 0) rowParams.topMargin = gap;
+            row.setLayoutParams(rowParams);
+            for (int column = 0; column < columns; column++) {
+                int index = start + column;
+                if (index >= limit) {
+                    // 不足一行时用空白占位，保持图片尺寸一致。
+                    View spacer = new View(requireContext());
+                    LinearLayout.LayoutParams spacerParams = new LinearLayout.LayoutParams(0, 1, 1f);
+                    if (column > 0) spacerParams.setMarginStart(gap);
+                    spacer.setLayoutParams(spacerParams);
+                    row.addView(spacer);
+                    continue;
+                }
+                View tile = LayoutInflater.from(requireContext())
+                        .inflate(R.layout.item_weibo_image, row, false);
+                int height = columns == 1 ? 200 * dp : (columns == 2 ? 130 * dp : 100 * dp);
+                LinearLayout.LayoutParams tileParams = new LinearLayout.LayoutParams(0, height, 1f);
+                if (column > 0) tileParams.setMarginStart(gap);
+                tile.setLayoutParams(tileParams);
+                android.widget.ImageView image = tile.findViewById(R.id.weiboImage);
+                image.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
+                WeiboImages.load(requireContext(), image, images.get(index), 0);
+                final int position = index;
+                tile.setOnClickListener(v -> WeiboImageActivity.open(
+                        requireContext(), new ArrayList<>(images), position));
+                row.addView(tile);
+            }
+            container.addView(row);
+        }
+    }
+
+    /** 微博正文里的话题与 @ 用主题色高亮，阅读时更有层次。 */
+    private CharSequence linkifyWeiboText(String text) {
+        if (text == null) return "";
+        android.text.SpannableString span = new android.text.SpannableString(text);
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("#[^#]{1,30}#|@[\\w\\u4e00-\\u9fa5-]{2,20}")
+                .matcher(text);
+        while (matcher.find()) {
+            span.setSpan(new android.text.style.ForegroundColorSpan(
+                            ContextCompat.getColor(requireContext(), R.color.primary)),
+                    matcher.start(), matcher.end(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
+        return span;
     }
 
     /** 类型 × 年代结构：把每个「类型 + 年代」组合的投稿量做成横向条形图。 */

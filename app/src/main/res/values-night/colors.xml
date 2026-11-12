@@ -22,6 +22,8 @@
     <color name="purple">#A48CFF</color>
     <color name="chart_grid">#33AFC0C6</color>
     <color name="chart_accent_pink">#FF8FA6</color>
+    <color name="weibo_image_bg">#232A2E</color>
+    <color name="weibo_reply_bg">#1F2C2E</color>
     <!-- white 与 launcher_background 属固定用途（时长角标白字、图标底色），
          不随深色模式变化，沿用浅色定义即可。 -->
 </resources>

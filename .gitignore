@@ -4,3 +4,9 @@
 build/
 app/build/
 /local.properties
+
+# 本地 UI 预览与渲染产物（一次性检查用，不入库）
+audit/_*.html
+audit/weibo_*.png
+audit/weibo_*.json
+audit/weibo_imgs/

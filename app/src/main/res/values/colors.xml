@@ -23,4 +23,7 @@
          这样深色模式下能自动跟随 values-night 定义。 -->
     <color name="chart_grid">#1F656D7D</color>
     <color name="chart_accent_pink">#FF6B8A</color>
+    <!-- 微博模块：配图占位与楼中楼底纹。 -->
+    <color name="weibo_image_bg">#EDF1F2</color>
+    <color name="weibo_reply_bg">#EAF2F2</color>
 </resources>
