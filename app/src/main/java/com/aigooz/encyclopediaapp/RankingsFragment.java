@@ -1055,49 +1055,82 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
     }
 
     /**
-     * 微博动态：数据来自 m.weibo.cn 公开接口，按时间倒序列出。
+     * 微博动态：数据来自本地归档，按博主分组、组内按时间倒序。
      *
-     * 网页端把微博作为独立模块；移动端这里做成紧凑卡片，正文默认截断，
-     * 点击卡片用系统浏览器打开微博原文。
+     * 两位博主的内容都在应用内渲染：列表给出摘要，点进去是
+     * {@link WeiboDetailActivity}，正文、配图与评论区全部本地可看，
+     * 不跳浏览器、也不跳微博客户端。微博即使过了"仅半年可见"期限，
+     * 归档里的内容仍会保留。
      */
     private void renderWeibo(DataModels.Dataset dataset) {
         weiboList.removeAllViews();
         DataModels.RawData data = dataset.data;
-        Map<String, DataModels.WeiboAccount> accounts = data.weibo;
+        // 两位博主的内容放在一起展示：Warma 的归档里同时包含两位，
+        // 怒九站点的归档只有怒九，这里做一次合并，保证任何站点都能看到两人。
+        Map<String, DataModels.WeiboAccount> accounts = new java.util.LinkedHashMap<>();
+        for (Site other : Site.values()) {
+            DataModels.Dataset otherDataset = DataRepository.get().current(other);
+            if (otherDataset == null || otherDataset.data == null || otherDataset.data.weibo == null) continue;
+            for (Map.Entry<String, DataModels.WeiboAccount> entry : otherDataset.data.weibo.entrySet()) {
+                DataModels.WeiboAccount existing = accounts.get(entry.getKey());
+                DataModels.WeiboAccount candidate = entry.getValue();
+                if (candidate == null || candidate.posts == null || candidate.posts.isEmpty()) continue;
+                if (existing == null || existing.posts == null
+                        || candidate.posts.size() > existing.posts.size()) {
+                    accounts.put(entry.getKey(), candidate);
+                }
+            }
+        }
         if (accounts == null || accounts.isEmpty()) {
             weiboSummary.setText("暂未收录微博动态");
             return;
         }
-        List<DataModels.WeiboPost> posts = new ArrayList<>();
-        for (DataModels.WeiboAccount account : accounts.values()) {
-            if (account == null || account.posts == null) continue;
-            posts.addAll(account.posts);
+        // 当前站点对应的博主排在前面，另一位紧跟其后，两位都能看到。
+        String ownKey = dataset.site == Site.WARMA ? "warma" : "nujiu";
+        List<String> order = new ArrayList<>();
+        order.add(ownKey);
+        for (String key : accounts.keySet()) if (!key.equals(ownKey)) order.add(key);
+
+        int totalPosts = 0;
+        int totalComments = 0;
+        int rendered = 0;
+        for (String key : order) {
+            DataModels.WeiboAccount account = accounts.get(key);
+            if (account == null || account.posts == null || account.posts.isEmpty()) continue;
+            List<DataModels.WeiboPost> posts = new ArrayList<>(account.posts);
+            posts.sort((a, b) -> b.date.compareTo(a.date));
+            totalPosts += posts.size();
+            for (DataModels.WeiboPost post : posts) totalComments += post.commentTotal();
+
+            TextView heading = new TextView(requireContext());
+            String name = account.name == null || account.name.isEmpty() ? key : account.name;
+            heading.setText(name + " · 本地归档 " + posts.size() + " 条");
+            heading.setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_TitleMedium);
+            int margin = (int) (10 * getResources().getDisplayMetrics().density);
+            LinearLayout.LayoutParams headingParams = new LinearLayout.LayoutParams(-1, -2);
+            headingParams.topMargin = weiboList.getChildCount() == 0 ? 0 : margin * 2;
+            heading.setLayoutParams(headingParams);
+            weiboList.addView(heading);
+
+            for (DataModels.WeiboPost post : posts) {
+                if (rendered++ >= 60) break;
+                View card = LayoutInflater.from(requireContext()).inflate(R.layout.item_insight, weiboList, false);
+                TextView title = card.findViewById(R.id.title);
+                TextView body = card.findViewById(R.id.body);
+                title.setText(post.date + (post.region == null || post.region.isEmpty() ? "" : " · " + post.region));
+                body.setText(post.preview(160) + "\n赞 " + UiUtils.number(requireContext(), post.likes)
+                        + " · 转发 " + UiUtils.number(requireContext(), post.reposts)
+                        + " · 已存评论 " + post.commentTotal() + " 条");
+                card.setOnClickListener(v -> WeiboDetailActivity.open(this, dataset.site, post.id));
+                weiboList.addView(card);
+            }
         }
-        if (posts.isEmpty()) {
-            weiboSummary.setText("暂未收录微博动态");
+        if (totalPosts == 0) {
+            weiboSummary.setText("暂未收录该博主的微博动态");
             return;
         }
-        posts.sort((a, b) -> b.date.compareTo(a.date));
-        weiboSummary.setText("共 " + posts.size() + " 条近期动态 · 点击查看原文");
-        int shown = 0;
-        for (DataModels.WeiboPost post : posts) {
-            if (shown++ >= 20) break;
-            View card = LayoutInflater.from(requireContext()).inflate(R.layout.item_insight, weiboList, false);
-            TextView title = card.findViewById(R.id.title);
-            TextView body = card.findViewById(R.id.body);
-            title.setText(post.date + (post.region.isEmpty() ? "" : " · " + post.region));
-            body.setText(post.preview(140) + "\n赞 " + UiUtils.number(requireContext(), post.likes)
-                    + " · 评论 " + UiUtils.number(requireContext(), post.comments)
-                    + " · 转发 " + UiUtils.number(requireContext(), post.reposts));
-            card.setOnClickListener(v -> {
-                if (!post.url.isEmpty()) {
-                    android.content.Intent intent = new android.content.Intent(
-                            android.content.Intent.ACTION_VIEW, android.net.Uri.parse(post.url));
-                    try { startActivity(intent); } catch (Exception ignored) {}
-                }
-            });
-            weiboList.addView(card);
-        }
+        weiboSummary.setText("两位博主本地归档 " + totalPosts + " 条微博 · " + totalComments
+                + " 条评论（含回复）· 点开即可在应用内查看");
     }
 
     /** 类型 × 年代结构：把每个「类型 + 年代」组合的投稿量做成横向条形图。 */

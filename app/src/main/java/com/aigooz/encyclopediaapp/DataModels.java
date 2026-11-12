@@ -31,7 +31,9 @@ public final class DataModels {
     /** 微博账号快照：只保留展示需要的字段，避免把整段 HTML 塞进内存。 */
     public static class WeiboAccount {
         public String uid = "";
+        public String name = "";
         public String fetched_at = "";
+        public boolean complete;
         public int count;
         public List<WeiboPost> posts = new ArrayList<>();
     }
@@ -46,6 +48,16 @@ public final class DataModels {
         public String region = "";
         public String url = "";
         public List<String> pics = new ArrayList<>();
+        /** 评论区：顶层评论 + 每条评论下的楼中楼，全部来自本地归档。 */
+        public List<WeiboComment> comments_data = new ArrayList<>();
+
+        public int commentTotal() {
+            int total = 0;
+            for (WeiboComment comment : comments_data) {
+                total += 1 + (comment.replies == null ? 0 : comment.replies.size());
+            }
+            return total;
+        }
 
         /** 微博正文里可能带 [表情] 标记，列表里截断显示。 */
         public String preview(int limit) {
@@ -53,6 +65,24 @@ public final class DataModels {
             String flat = text.replace('\n', ' ').trim();
             return flat.length() <= limit ? flat : flat.substring(0, limit) + "…";
         }
+    }
+
+    public static class WeiboComment {
+        public String user = "";
+        public String date = "";
+        public String text = "";
+        public double likes;
+        public String region = "";
+        public boolean is_author;
+        public List<WeiboReply> replies = new ArrayList<>();
+    }
+
+    public static class WeiboReply {
+        public String user = "";
+        public String date = "";
+        public String text = "";
+        public double likes;
+        public boolean is_author;
     }
 
     public static class Profile {
