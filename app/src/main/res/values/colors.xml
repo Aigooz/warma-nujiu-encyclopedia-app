@@ -23,6 +23,16 @@
          这样深色模式下能自动跟随 values-night 定义。 -->
     <color name="chart_grid">#1F656D7D</color>
     <color name="chart_accent_pink">#FF6B8A</color>
+    <!-- 图表调色盘：与网页端 ECharts PALETTE 对齐，供柱状/条形/饼图渐变取色。 -->
+    <color name="chart_pink">#FF6B8A</color>
+    <color name="chart_purple">#7C5CFF</color>
+    <color name="chart_blue">#2B8CFF</color>
+    <color name="chart_mint">#00B894</color>
+    <color name="chart_amber">#FFAB2E</color>
+    <color name="chart_cyan">#00B8D9</color>
+    <color name="chart_rose">#F765A3</color>
+    <color name="chart_lime">#9EE493</color>
+    <color name="chart_lavender">#D7C4FF</color>
     <!-- 微博模块：配图占位与楼中楼底纹。 -->
     <color name="weibo_image_bg">#EDF1F2</color>
     <color name="weibo_reply_bg">#EAF2F2</color>

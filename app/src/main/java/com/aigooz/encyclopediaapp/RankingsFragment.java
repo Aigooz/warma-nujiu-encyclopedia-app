@@ -1,6 +1,5 @@
 package com.aigooz.encyclopediaapp;
 
-import android.graphics.Color;
 import android.os.Bundle;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
@@ -36,11 +35,17 @@ import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.PieData;
 import com.github.mikephil.charting.data.PieDataSet;
 import com.github.mikephil.charting.data.PieEntry;
+import com.github.mikephil.charting.data.RadarData;
+import com.github.mikephil.charting.data.RadarDataSet;
+import com.github.mikephil.charting.data.RadarEntry;
 import com.github.mikephil.charting.data.ScatterData;
 import com.github.mikephil.charting.data.ScatterDataSet;
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
+
+import com.aigooz.encyclopediaapp.chart.ChartPalette;
+import com.aigooz.encyclopediaapp.chart.ChartStyler;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -67,11 +72,14 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
     private BarChart monthChart;
     private com.github.mikephil.charting.charts.HorizontalBarChart gapChart;
     private BarChart durationChart;
+    private com.aigooz.encyclopediaapp.chart.HeatmapView pubWeekdayHeatmap;
+    private com.aigooz.encyclopediaapp.chart.HeatmapView calendarHeatmap;
     private PieChart honorChart;
     private LinearLayout honorLegend;
     private LinearLayout honorTimeline;
     private ScatterChart clusterChart;
     private ChipGroup tagCloud;
+    private com.aigooz.encyclopediaapp.chart.HeatmapView tagMatrixHeatmap;
     private LinearLayout tagAffinityContainer;
     private View sectionHeat;
     private PieChart engageChart;
@@ -80,6 +88,8 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
     private com.github.mikephil.charting.charts.HorizontalBarChart typeViewsChart;
     private ScatterChart engageScatterChart;
     private com.github.mikephil.charting.charts.HorizontalBarChart structureChart;
+    private com.github.mikephil.charting.charts.LineChart cumulativeChart;
+    private com.github.mikephil.charting.charts.RadarChart radarChart;
     private View sectionWeibo;
     private TextView weiboSummary;
     private LinearLayout weiboList;
@@ -92,11 +102,6 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
     private String metric = "view";
     private String section = "ranking";
     private String selectedSimilar = "";
-
-    private static final int[] CHART_COLORS = {
-            R.color.primary, R.color.mint, R.color.pink, R.color.orange, R.color.blue,
-            R.color.primary_dark, R.color.purple
-    };
 
     @Override public void onCreate(@Nullable Bundle state) {
         super.onCreate(state);
@@ -144,11 +149,14 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         monthChart = view.findViewById(R.id.monthChart);
         gapChart = view.findViewById(R.id.gapChart);
         durationChart = view.findViewById(R.id.durationChart);
+        pubWeekdayHeatmap = view.findViewById(R.id.pubWeekdayHeatmap);
+        calendarHeatmap = view.findViewById(R.id.calendarHeatmap);
         honorChart = view.findViewById(R.id.honorChart);
         honorLegend = view.findViewById(R.id.honorLegend);
         honorTimeline = view.findViewById(R.id.honorTimeline);
         clusterChart = view.findViewById(R.id.clusterChart);
         tagCloud = view.findViewById(R.id.tagCloud);
+        tagMatrixHeatmap = view.findViewById(R.id.tagMatrixHeatmap);
         tagAffinityContainer = view.findViewById(R.id.tagAffinityContainer);
         similarSource = view.findViewById(R.id.similarSource);
         similarList = view.findViewById(R.id.similarList);
@@ -163,6 +171,8 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         typeViewsChart = view.findViewById(R.id.typeViewsChart);
         engageScatterChart = view.findViewById(R.id.engageScatterChart);
         structureChart = view.findViewById(R.id.structureChart);
+        cumulativeChart = view.findViewById(R.id.cumulativeChart);
+        radarChart = view.findViewById(R.id.radarChart);
         sectionWeibo = view.findViewById(R.id.sectionWeibo);
         weiboSummary = view.findViewById(R.id.weiboSummary);
         weiboList = view.findViewById(R.id.weiboList);
@@ -214,48 +224,35 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
     }
 
     private void setupRankChart() {
-        rankChart.getDescription().setEnabled(false);
-        rankChart.getLegend().setEnabled(false);
+        ChartStyler.horizontalBar(rankChart, requireContext());
         rankChart.setTouchEnabled(true);
-        rankChart.setScaleEnabled(false);
-        rankChart.setDragEnabled(false);
-        rankChart.setDoubleTapToZoomEnabled(false);
         rankChart.setOnChartValueSelectedListener(new com.github.mikephil.charting.listener.OnChartValueSelectedListener() {
             @Override public void onValueSelected(Entry entry, com.github.mikephil.charting.highlight.Highlight highlight) {
                 if (entry.getData() instanceof String) VideoDetailActivity.open(RankingsFragment.this, (String) entry.getData());
             }
             @Override public void onNothingSelected() {}
         });
-        rankChart.setDrawGridBackground(false);
-        rankChart.getAxisRight().setEnabled(false);
         rankChart.getAxisLeft().setDrawGridLines(false);
-        rankChart.getAxisLeft().setAxisMinimum(0f);
-        rankChart.getAxisLeft().setTextColor(axisColor());
-        rankChart.getAxisLeft().setTextSize(10f);
         rankChart.getAxisLeft().setValueFormatter(numberFormatter());
         rankChart.setExtraBottomOffset(8f);
-        XAxis axis = rankChart.getXAxis();
-        axis.setPosition(XAxis.XAxisPosition.BOTTOM);
-        axis.setDrawGridLines(false);
-        axis.setGranularity(1f);
-        axis.setTextColor(axisColor());
-        axis.setTextSize(10f);
     }
 
     private void setupCharts() {
-        setupBarChart(clockChart);
-        setupBarChart(weekdayChart);
-        setupBarChart(monthChart);
-        setupBarChart(durationChart);
-        setupHorizontalBarChart(gapChart);
+        ChartStyler.bar(clockChart, requireContext());
+        ChartStyler.bar(weekdayChart, requireContext());
+        ChartStyler.bar(monthChart, requireContext());
+        ChartStyler.bar(durationChart, requireContext());
+        ChartStyler.horizontalBar(gapChart, requireContext());
         setupAnnualChart();
         setupHonorChart();
         setupClusterChart();
         setupEngageChart();
         setupScatterChart(engageScatterChart);
-        setupHorizontalBarChart(typeViewsChart);
-        setupHorizontalBarChart(structureChart);
-        setupBarChart(yearViewsChart);
+        ChartStyler.horizontalBar(typeViewsChart, requireContext());
+        ChartStyler.horizontalBar(structureChart, requireContext());
+        ChartStyler.bar(yearViewsChart, requireContext());
+        ChartStyler.line(cumulativeChart, requireContext());
+        ChartStyler.radar(radarChart, requireContext());
         enableValueSelection(clockChart);
         enableValueSelection(weekdayChart);
         enableValueSelection(monthChart);
@@ -280,54 +277,20 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
     }
 
     private void setupAnnualChart() {
-        annualChart.getDescription().setEnabled(false);
-        annualChart.setDrawGridBackground(false);
+        ChartStyler.combined(annualChart, requireContext());
         annualChart.setDrawBarShadow(false);
         annualChart.setHighlightFullBarEnabled(false);
-        annualChart.setPinchZoom(false);
-        annualChart.setDragEnabled(false);
-        annualChart.setScaleEnabled(false);
-        annualChart.setDoubleTapToZoomEnabled(false);
-        annualChart.getAxisRight().setEnabled(false);
-        annualChart.getAxisLeft().setAxisMinimum(0f);
-        annualChart.getAxisLeft().setDrawGridLines(false);
-        annualChart.getAxisLeft().setTextColor(axisColor());
-        annualChart.getAxisLeft().setTextSize(10f);
-        annualChart.getAxisLeft().setValueFormatter(numberFormatter());
-        annualChart.getXAxis().setPosition(XAxis.XAxisPosition.BOTTOM);
-        annualChart.getXAxis().setDrawGridLines(false);
-        annualChart.getXAxis().setGranularity(1f);
-        annualChart.getXAxis().setTextColor(axisColor());
-        annualChart.getXAxis().setTextSize(10f);
-        annualChart.getXAxis().setAvoidFirstLastClipping(true);
-        annualChart.getLegend().setEnabled(true);
-        annualChart.getLegend().setHorizontalAlignment(Legend.LegendHorizontalAlignment.CENTER);
-        annualChart.getLegend().setTextColor(axisColor());
-        annualChart.getLegend().setTextSize(11f);
-        annualChart.getLegend().setWordWrapEnabled(true);
         annualChart.setDrawOrder(new CombinedChart.DrawOrder[]{
                 CombinedChart.DrawOrder.BAR, CombinedChart.DrawOrder.LINE
         });
     }
 
     private void setupHonorChart() {
-        honorChart.getDescription().setEnabled(false);
-        honorChart.setDrawHoleEnabled(true);
-        honorChart.setHoleColor(Color.TRANSPARENT);
-        honorChart.setCenterTextColor(axisColor());
-        honorChart.getLegend().setEnabled(false);
-        honorChart.setDrawEntryLabels(false);
-        honorChart.setRotationEnabled(false);
+        ChartStyler.pie(honorChart, requireContext());
     }
 
     private void setupEngageChart() {
-        engageChart.getDescription().setEnabled(false);
-        engageChart.setDrawHoleEnabled(true);
-        engageChart.setHoleColor(Color.TRANSPARENT);
-        engageChart.setCenterTextColor(axisColor());
-        engageChart.getLegend().setEnabled(false);
-        engageChart.setDrawEntryLabels(false);
-        engageChart.setRotationEnabled(false);
+        ChartStyler.pie(engageChart, requireContext());
     }
 
     private void setupScatterChart(ScatterChart chart) {
@@ -368,54 +331,6 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         clusterChart.getLegend().setTextColor(axisColor());
         clusterChart.getLegend().setTextSize(11f);
         clusterChart.getLegend().setWordWrapEnabled(true);
-    }
-
-    private void setupBarChart(BarChart chart) {
-        chart.getDescription().setEnabled(false);
-        chart.getLegend().setEnabled(false);
-        chart.setTouchEnabled(false);
-        chart.setDrawGridBackground(false);
-        chart.setPinchZoom(false);
-        chart.setDragEnabled(false);
-        chart.setScaleEnabled(false);
-        chart.setDoubleTapToZoomEnabled(false);
-        chart.getAxisRight().setEnabled(false);
-        chart.getAxisLeft().setAxisMinimum(0f);
-        chart.getAxisLeft().setDrawGridLines(false);
-        chart.getAxisLeft().setTextColor(axisColor());
-        chart.getAxisLeft().setTextSize(10f);
-        chart.getAxisLeft().setValueFormatter(numberFormatter());
-        XAxis axis = chart.getXAxis();
-        axis.setPosition(XAxis.XAxisPosition.BOTTOM);
-        axis.setDrawGridLines(false);
-        axis.setGranularity(1f);
-        axis.setTextColor(axisColor());
-        axis.setTextSize(10f);
-        axis.setAvoidFirstLastClipping(true);
-    }
-
-    /** 水平柱图：X 轴是纵向类别轴，数值轴为左侧的水平轴。 */
-    private void setupHorizontalBarChart(com.github.mikephil.charting.charts.HorizontalBarChart chart) {
-        chart.getDescription().setEnabled(false);
-        chart.getLegend().setEnabled(false);
-        chart.setTouchEnabled(false);
-        chart.setDrawGridBackground(false);
-        chart.setPinchZoom(false);
-        chart.setDragEnabled(false);
-        chart.setScaleEnabled(false);
-        chart.setDoubleTapToZoomEnabled(false);
-        chart.getAxisRight().setEnabled(false);
-        chart.getAxisLeft().setAxisMinimum(0f);
-        chart.getAxisLeft().setDrawGridLines(false);
-        chart.getAxisLeft().setTextColor(axisColor());
-        chart.getAxisLeft().setTextSize(10f);
-        XAxis axis = chart.getXAxis();
-        axis.setPosition(XAxis.XAxisPosition.BOTTOM);
-        axis.setDrawGridLines(false);
-        axis.setGranularity(1f);
-        axis.setTextColor(axisColor());
-        axis.setTextSize(10f);
-        chart.setExtraBottomOffset(6f);
     }
 
     private com.github.mikephil.charting.formatter.ValueFormatter numberFormatter() {
@@ -485,6 +400,9 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         renderWeekday(dataset);
         renderMonth(dataset);
         renderGapBands(dataset);
+        renderCumulative(dataset);
+        renderPubWeekdayHeatmap(dataset);
+        renderCalendarHeatmap(dataset);
         renderHonors(dataset);
         renderDuration(dataset);
         renderHeat(dataset);
@@ -492,6 +410,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         renderTags(dataset);
         renderClusters(dataset);
         renderStructure(dataset);
+        renderRadar(dataset);
         renderSimilar(dataset);
     }
 
@@ -529,7 +448,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
             labels.add("#" + (i + 1));
         }
         BarDataSet set = new BarDataSet(entries, "榜值");
-        set.setColor(ContextCompat.getColor(requireContext(), R.color.primary));
+        ChartStyler.horizontalGradient(set, requireContext(), 1);
         set.setDrawValues(false);
         rankChart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
         rankChart.getXAxis().setLabelCount(Math.max(2, labels.size()), false);
@@ -599,12 +518,16 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         }
         if (bars.isEmpty()) { annualChart.clear(); annualChart.setNoDataText("暂无投稿数据"); return; }
         BarDataSet barSet = new BarDataSet(bars, "年度投稿");
-        barSet.setColor(ContextCompat.getColor(requireContext(), R.color.blue));
+        ChartStyler.verticalGradient(barSet, requireContext(), 2);
         barSet.setDrawValues(false);
         LineDataSet lineSet = new LineDataSet(line, "累计视频");
-        lineSet.setColor(ContextCompat.getColor(requireContext(), R.color.mint));
+        lineSet.setColor(ChartPalette.color(requireContext(), 3));
         lineSet.setLineWidth(2.6f);
         lineSet.setDrawCircles(false);
+        lineSet.setMode(LineDataSet.Mode.HORIZONTAL_BEZIER);
+        lineSet.setDrawFilled(true);
+        lineSet.setFillColor(ChartPalette.color(requireContext(), 3));
+        lineSet.setFillAlpha(38);
         lineSet.setDrawValues(false);
 
         CombinedData data = new CombinedData();
@@ -632,7 +555,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
             labels.add(String.valueOf(i));
         }
         BarDataSet set = new BarDataSet(entries, "发布数量");
-        set.setColor(ContextCompat.getColor(requireContext(), R.color.blue));
+        ChartStyler.verticalGradient(set, requireContext(), 2);
         set.setDrawValues(false);
         clockChart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
         clockChart.getXAxis().setLabelCount(axisLabelCount(8), false);
@@ -654,7 +577,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
             labels.add(names[i]);
         }
         BarDataSet set = new BarDataSet(entries, "更新数量");
-        set.setColor(ContextCompat.getColor(requireContext(), R.color.orange));
+        ChartStyler.verticalGradient(set, requireContext(), 1);
         set.setDrawValues(false);
         weekdayChart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
         weekdayChart.getXAxis().setLabelCount(axisLabelCount(7), false);
@@ -676,7 +599,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
             labels.add((i + 1) + "月");
         }
         BarDataSet set = new BarDataSet(entries, "投稿数量");
-        set.setColor(ContextCompat.getColor(requireContext(), R.color.purple));
+        ChartStyler.verticalGradient(set, requireContext(), 2);
         set.setDrawValues(false);
         monthChart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
         monthChart.getXAxis().setLabelCount(axisLabelCount(6), false);
@@ -714,7 +637,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
             index++;
         }
         BarDataSet set = new BarDataSet(entries, "间隔数量");
-        set.setColor(ContextCompat.getColor(requireContext(), R.color.mint));
+        ChartStyler.horizontalGradient(set, requireContext(), 3);
         set.setDrawValues(false);
         gapChart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
         gapChart.getXAxis().setLabelCount(Math.max(2, labels.size()), false);
@@ -743,7 +666,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
             labels.add(names[i] + " · " + counts[i]);
         }
         BarDataSet set = new BarDataSet(entries, "平均点赞率");
-        set.setColor(ContextCompat.getColor(requireContext(), R.color.pink));
+        ChartStyler.verticalGradient(set, requireContext(), 0);
         set.setDrawValues(false);
         durationChart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
         durationChart.getXAxis().setLabelCount(Math.max(2, labels.size()), false);
@@ -754,6 +677,232 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         });
         durationChart.setData(new BarData(set));
         durationChart.invalidate();
+    }
+
+    /**
+     * 字幕规模累积曲线：按时间顺序累计字幕行与字符数，对应网页端的「字幕规模累积曲线」。
+     * 两条折线共用横轴（投稿序号），纵轴用「万 / 亿」压缩。
+     */
+    private void renderCumulative(DataModels.Dataset dataset) {
+        if (cumulativeChart == null) return;
+        List<DataModels.Video> ordered = sortByDateAscending(dataset.data.videos);
+        if (ordered.isEmpty()) { cumulativeChart.clear(); cumulativeChart.setNoDataText("暂无字幕数据"); return; }
+        List<Entry> lines = new ArrayList<>();
+        List<Entry> chars = new ArrayList<>();
+        double totalLines = 0;
+        double totalChars = 0;
+        int index = 0;
+        for (DataModels.Video video : ordered) {
+            totalLines += video.sub_lines;
+            totalChars += video.sub_chars;
+            lines.add(new Entry(index, (float) totalLines));
+            chars.add(new Entry(index, (float) totalChars));
+            index++;
+        }
+        LineDataSet lineSet = new LineDataSet(lines, "累计字幕行");
+        lineSet.setColor(ChartPalette.color(requireContext(), 3));
+        lineSet.setLineWidth(2.6f);
+        lineSet.setDrawCircles(false);
+        lineSet.setMode(LineDataSet.Mode.CUBIC_BEZIER);
+        lineSet.setDrawFilled(true);
+        lineSet.setFillColor(ChartPalette.color(requireContext(), 3));
+        lineSet.setFillAlpha(42);
+        lineSet.setDrawValues(false);
+
+        LineDataSet charSet = new LineDataSet(chars, "累计字符");
+        charSet.setColor(ChartPalette.color(requireContext(), 2));
+        charSet.setLineWidth(2f);
+        charSet.setDrawCircles(false);
+        charSet.setMode(LineDataSet.Mode.CUBIC_BEZIER);
+        charSet.enableDashedLine(8f, 6f, 0f);
+        charSet.setDrawValues(false);
+        // 字符数与字幕行数量级相差很大，放到右轴，避免把折线压成一条直线（网页端同样是双轴）。
+        charSet.setAxisDependency(com.github.mikephil.charting.components.YAxis.AxisDependency.RIGHT);
+
+        com.github.mikephil.charting.components.YAxis rightAxis = cumulativeChart.getAxisRight();
+        rightAxis.setEnabled(true);
+        rightAxis.setDrawAxisLine(false);
+        rightAxis.setDrawGridLines(false);
+        rightAxis.setTextColor(ChartStyler.muted(requireContext()));
+        rightAxis.setTextSize(10f);
+        rightAxis.setValueFormatter(ChartStyler.compactNumber(requireContext()));
+
+        cumulativeChart.getXAxis().setValueFormatter(new com.github.mikephil.charting.formatter.ValueFormatter() {
+            @Override public String getFormattedValue(float value) {
+                int position = (int) value;
+                if (position < 0 || position >= ordered.size()) return "";
+                return ordered.get(position).date;
+            }
+        });
+        cumulativeChart.getXAxis().setLabelCount(axisLabelCount(5), false);
+        cumulativeChart.setData(new LineData(lineSet, charSet));
+        cumulativeChart.invalidate();
+    }
+
+    /**
+     * 类型形态雷达：取投稿数前 5 的类型，用「平均字幕行 / 平均字符 / 视频数 /
+     * 长字幕占比 / 账号多样性」五个维度刻画各自形态，对应网页端的「类型形态雷达」。
+     */
+    private void renderRadar(DataModels.Dataset dataset) {
+        if (radarChart == null) return;
+        List<DataModels.Video> videos = dataset.data.videos;
+        Map<String, List<DataModels.Video>> byType = new LinkedHashMap<>();
+        for (DataModels.Video video : videos) {
+            String type = video.type == null || video.type.isEmpty() ? "未标注" : video.type;
+            byType.computeIfAbsent(type, key -> new ArrayList<>()).add(video);
+        }
+        List<Map.Entry<String, List<DataModels.Video>>> ranked = new ArrayList<>(byType.entrySet());
+        ranked.sort((a, b) -> Integer.compare(b.getValue().size(), a.getValue().size()));
+        if (ranked.size() < 2) { radarChart.clear(); radarChart.setNoDataText("暂无足够的类型数据"); return; }
+        ranked = ranked.subList(0, Math.min(5, ranked.size()));
+
+        // 五个维度的分母分别归一化，否则量纲差距过大时雷达图会被单维拉扁。
+        double maxLines = 0, maxChars = 0, maxCount = 0;
+        for (Map.Entry<String, List<DataModels.Video>> entry : ranked) {
+            List<DataModels.Video> group = entry.getValue();
+            double avgLines = average(group, true);
+            double avgChars = average(group, false);
+            maxLines = Math.max(maxLines, avgLines);
+            maxChars = Math.max(maxChars, avgChars);
+            maxCount = Math.max(maxCount, group.size());
+        }
+        String[] indicators = {"平均字幕行", "平均字符", "视频数", "长字幕占比", "账号多样性"};
+        radarChart.getXAxis().setValueFormatter(new com.github.mikephil.charting.formatter.IndexAxisValueFormatter(indicators));
+        radarChart.getXAxis().setLabelCount(indicators.length);
+        radarChart.getYAxis().setAxisMaximum(100f);
+        radarChart.getYAxis().setAxisMinimum(0f);
+
+        RadarData data = new RadarData();
+        int colorIndex = 0;
+        for (Map.Entry<String, List<DataModels.Video>> entry : ranked) {
+            List<DataModels.Video> group = entry.getValue();
+            double avgLines = average(group, true);
+            double avgChars = average(group, false);
+            Set<String> accounts = new HashSet<>();
+            int longCount = 0;
+            for (DataModels.Video video : group) {
+                accounts.add(video.account);
+                if (video.sub_lines >= 1000) longCount++;
+            }
+            List<RadarEntry> entries = new ArrayList<>();
+            entries.add(new RadarEntry((float) (maxLines <= 0 ? 0 : avgLines / maxLines * 100)));
+            entries.add(new RadarEntry((float) (maxChars <= 0 ? 0 : avgChars / maxChars * 100)));
+            entries.add(new RadarEntry((float) (maxCount <= 0 ? 0 : group.size() / maxCount * 100)));
+            entries.add(new RadarEntry((float) (longCount * 100.0 / group.size())));
+            entries.add(new RadarEntry(Math.min(100f, accounts.size() / 2f * 100f)));
+
+            RadarDataSet set = new RadarDataSet(entries, entry.getKey());
+            int color = ChartPalette.color(requireContext(), colorIndex++);
+            set.setColor(color);
+            set.setLineWidth(2.2f);
+            set.setDrawFilled(true);
+            set.setFillColor(color);
+            set.setFillAlpha(38);
+            set.setDrawValues(false);
+            set.setDrawHighlightCircleEnabled(true);
+            data.addDataSet(set);
+        }
+        radarChart.setData(data);
+        radarChart.invalidate();
+    }
+
+    private double average(List<DataModels.Video> group, boolean lines) {
+        if (group.isEmpty()) return 0;
+        double total = 0;
+        for (DataModels.Video video : group) total += lines ? video.sub_lines : video.sub_chars;
+        return total / group.size();
+    }
+
+    /**
+     * 发布时段 × 星期热力：行是周一到周日、列是 0–23 点，颜色深浅代表该时段投稿数。
+     * 对应网页端的「发布时段 × 星期矩阵」。手机端屏幕窄，列标签每 3 小时显示一次。
+     */
+    private void renderPubWeekdayHeatmap(DataModels.Dataset dataset) {
+        if (pubWeekdayHeatmap == null) return;
+        int[][] grid = new int[7][24];
+        for (DataModels.Video video : dataset.data.videos) {
+            String iso = video.pubdate_iso;
+            if (iso == null || iso.length() < 13) continue;
+            int hour;
+            try { hour = Integer.parseInt(iso.substring(11, 13)); } catch (Exception e) { continue; }
+            if (hour < 0 || hour > 23) continue;
+            LocalDate date = parseDate(video);
+            if (date == null) continue;
+            grid[date.getDayOfWeek().getValue() - 1][hour]++;
+        }
+        List<com.aigooz.encyclopediaapp.chart.HeatmapView.Cell> cells = new ArrayList<>();
+        for (int row = 0; row < 7; row++) {
+            for (int hour = 0; hour < 24; hour++) {
+                if (grid[row][hour] > 0) {
+                    cells.add(new com.aigooz.encyclopediaapp.chart.HeatmapView.Cell(
+                            row, hour, grid[row][hour], String.valueOf(grid[row][hour])));
+                }
+            }
+        }
+        String[] rows = {"周一", "周二", "周三", "周四", "周五", "周六", "周日"};
+        String[] columns = new String[24];
+        boolean[] visible = new boolean[24];
+        for (int i = 0; i < 24; i++) {
+            columns[i] = i + "时";
+            visible[i] = i % 3 == 0;
+        }
+        pubWeekdayHeatmap.setData(cells, rows, columns, visible);
+        pubWeekdayHeatmap.applyThemeColors(
+                ContextCompat.getColor(requireContext(), R.color.card),
+                ContextCompat.getColor(requireContext(), R.color.chart_purple),
+                ContextCompat.getColor(requireContext(), R.color.chart_pink),
+                ContextCompat.getColor(requireContext(), R.color.text_secondary));
+    }
+
+    /**
+     * 最近一年投稿日历：以「周 × 星期」铺开的全年热力，对应网页端的日历热力图。
+     * 列是一年中的第几周，行是周一到周日。
+     */
+    private void renderCalendarHeatmap(DataModels.Dataset dataset) {
+        if (calendarHeatmap == null) return;
+        LocalDate latest = null;
+        Map<LocalDate, Integer> counts = new HashMap<>();
+        for (DataModels.Video video : dataset.data.videos) {
+            LocalDate date = parseDate(video);
+            if (date == null) continue;
+            counts.merge(date, 1, Integer::sum);
+            if (latest == null || date.isAfter(latest)) latest = date;
+        }
+        if (latest == null) {
+            calendarHeatmap.setData(new ArrayList<>(), new String[0], new String[0]);
+            return;
+        }
+        LocalDate start = latest.minusDays(363);
+        // 对齐到周一起始，避免第一列只有半截。
+        start = start.minusDays(start.getDayOfWeek().getValue() - 1L);
+        int totalWeeks = (int) ChronoUnit.WEEKS.between(start, latest) + 1;
+        List<com.aigooz.encyclopediaapp.chart.HeatmapView.Cell> cells = new ArrayList<>();
+        for (Map.Entry<LocalDate, Integer> entry : counts.entrySet()) {
+            LocalDate date = entry.getKey();
+            if (date.isBefore(start) || date.isAfter(latest)) continue;
+            int week = (int) ChronoUnit.WEEKS.between(start, date);
+            int weekday = date.getDayOfWeek().getValue() - 1;
+            cells.add(new com.aigooz.encyclopediaapp.chart.HeatmapView.Cell(
+                    weekday, week, entry.getValue(), ""));
+        }
+        String[] rows = {"一", "二", "三", "四", "五", "六", "日"};
+        String[] columns = new String[totalWeeks];
+        boolean[] visible = new boolean[totalWeeks];
+        for (int i = 0; i < totalWeeks; i++) {
+            LocalDate weekStart = start.plusWeeks(i);
+            // 每月初标注一次月份，其余留空，避免 52 个列标签挤成一团。
+            boolean monthStart = weekStart.getDayOfMonth() <= 7;
+            columns[i] = monthStart ? (weekStart.getMonthValue() + "月") : "";
+            visible[i] = monthStart;
+        }
+        calendarHeatmap.setData(cells, rows, columns, visible);
+        // 日历有 52 列，行标签留白越窄越好，把宽度让给格子。
+        calendarHeatmap.setRowLabelWidthDp(20f);
+        calendarHeatmap.applyThemeColors(
+                ContextCompat.getColor(requireContext(), R.color.card),
+                ContextCompat.getColor(requireContext(), R.color.chart_purple),
+                ContextCompat.getColor(requireContext(), R.color.chart_amber),
+                ContextCompat.getColor(requireContext(), R.color.text_secondary));
     }
 
     /** 热度分区：互动构成、年度播放趋势、类型播放贡献与播放 × 点赞率散点。 */
@@ -778,7 +927,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
             int spacing = (int) (8 * getResources().getDisplayMetrics().density);
             row.setPadding(spacing, spacing / 2, spacing, spacing / 2);
             View swatch = new View(requireContext());
-            swatch.setBackgroundColor(ContextCompat.getColor(requireContext(), CHART_COLORS[colorIndex++ % CHART_COLORS.length]));
+            swatch.setBackgroundColor(ChartPalette.color(requireContext(), colorIndex++));
             row.addView(swatch, new LinearLayout.LayoutParams(spacing * 2, spacing * 2));
             TextView text = new TextView(requireContext());
             text.setText(names[i] + " · " + UiUtils.number(requireContext(), sums[i])
@@ -795,8 +944,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         } else {
             engageChart.setCenterText("互动\n" + UiUtils.number(requireContext(), total));
             PieDataSet set = new PieDataSet(pieEntries, "");
-            set.setColors(CHART_COLORS, requireContext());
-            set.setSliceSpace(2f);
+            ChartStyler.pieColors(set, requireContext());
             PieData data = new PieData(set);
             data.setDrawValues(false);
             engageChart.setData(data);
@@ -817,7 +965,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
             yearLabels.add(String.valueOf(entry.getKey()));
         }
         BarDataSet yearSet = new BarDataSet(yearEntries, "年度播放");
-        yearSet.setColor(ContextCompat.getColor(requireContext(), R.color.blue));
+        ChartStyler.verticalGradient(yearSet, requireContext(), 2);
         yearSet.setDrawValues(false);
         yearViewsChart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(yearLabels));
         yearViewsChart.getXAxis().setLabelCount(axisLabelCount(Math.min(8, Math.max(2, yearLabels.size()))), false);
@@ -841,7 +989,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
             typeLabels.add(entry.getKey() + " · " + UiUtils.number(requireContext(), entry.getValue()));
         }
         BarDataSet typeSet = new BarDataSet(typeEntries, "类型播放");
-        typeSet.setColor(ContextCompat.getColor(requireContext(), R.color.orange));
+        ChartStyler.horizontalGradient(typeSet, requireContext(), 6);
         typeSet.setDrawValues(false);
         typeViewsChart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(typeLabels));
         typeViewsChart.getXAxis().setLabelCount(Math.max(2, typeLabels.size()), false);
@@ -921,7 +1069,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
             int spacing = (int) (8 * getResources().getDisplayMetrics().density);
             row.setPadding(spacing, spacing / 2, spacing, spacing / 2);
             View swatch = new View(requireContext());
-            swatch.setBackgroundColor(ContextCompat.getColor(requireContext(), CHART_COLORS[colorIndex++ % CHART_COLORS.length]));
+            swatch.setBackgroundColor(ChartPalette.color(requireContext(), colorIndex++));
             row.addView(swatch, new LinearLayout.LayoutParams(spacing * 2, spacing * 2));
             TextView text = new TextView(requireContext());
             text.setText(entry.getKey() + " · " + entry.getValue());
@@ -939,8 +1087,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         }
         honorChart.setCenterText("荣誉\n" + entries.size() + " 类");
         PieDataSet set = new PieDataSet(entries, "");
-        set.setColors(CHART_COLORS, requireContext());
-        set.setSliceSpace(2f);
+        ChartStyler.pieColors(set, requireContext());
         PieData data = new PieData(set);
         data.setDrawValues(false);
         honorChart.setData(data);
@@ -975,6 +1122,67 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
             tagCloud.addView(chip);
         }
         renderTagAffinity(dataset, ranked.subList(0, Math.min(24, ranked.size())));
+        renderTagMatrix(dataset, ranked.subList(0, Math.min(12, ranked.size())));
+    }
+
+    /**
+     * 标签关联热力矩阵：行列都是高频标签，颜色代表 PMI（点互信息）。
+     * 对应网页端的「标签关联热力矩阵」，比文字列表更直观地看出哪些标签经常一起出现。
+     * 标签名较长，行/列标签各取前 4 个字，避免手机端挤在一起。
+     */
+    private void renderTagMatrix(DataModels.Dataset dataset, List<Map.Entry<String, Integer>> topTags) {
+        if (tagMatrixHeatmap == null) return;
+        if (topTags.size() < 4 || dataset.data.videos.isEmpty()) {
+            tagMatrixHeatmap.setData(new ArrayList<>(), new String[0], new String[0]);
+            return;
+        }
+        List<String> names = new ArrayList<>();
+        for (Map.Entry<String, Integer> entry : topTags) names.add(entry.getKey());
+        Set<String> nameSet = new HashSet<>(names);
+        Map<String, Integer> pairCounts = new HashMap<>();
+        for (DataModels.Video video : dataset.data.videos) {
+            List<String> present = new ArrayList<>();
+            Set<String> seen = new HashSet<>();
+            for (DataModels.Tag tag : video.tags) {
+                if (tag.name != null && nameSet.contains(tag.name) && seen.add(tag.name)) present.add(tag.name);
+            }
+            present.sort(String::compareTo);
+            for (int i = 0; i < present.size(); i++) {
+                for (int j = i + 1; j < present.size(); j++) {
+                    pairCounts.merge(present.get(i) + "\u0000" + present.get(j), 1, Integer::sum);
+                }
+            }
+        }
+        Map<String, Integer> tagCounts = tags(dataset);
+        int total = dataset.data.videos.size();
+        List<com.aigooz.encyclopediaapp.chart.HeatmapView.Cell> cells = new ArrayList<>();
+        for (int row = 0; row < names.size(); row++) {
+            for (int column = 0; column < names.size(); column++) {
+                if (row == column) continue;
+                String a = names.get(row);
+                String b = names.get(column);
+                String key = a.compareTo(b) <= 0 ? a + "\u0000" + b : b + "\u0000" + a;
+                int joint = pairCounts.getOrDefault(key, 0);
+                if (joint <= 0) continue;
+                double pab = joint * 1.0 / total;
+                double pa = count(tagCounts, a) * 1.0 / total;
+                double pb = count(tagCounts, b) * 1.0 / total;
+                double pmi = Math.log(pab / Math.max(1e-12, pa * pb)) / Math.log(2);
+                cells.add(new com.aigooz.encyclopediaapp.chart.HeatmapView.Cell(
+                        row, column, (float) Math.max(0.1, pmi), ""));
+            }
+        }
+        String[] labels = new String[names.size()];
+        for (int i = 0; i < names.size(); i++) {
+            String name = names.get(i);
+            labels[i] = name.length() <= 4 ? name : name.substring(0, 4);
+        }
+        tagMatrixHeatmap.setData(cells, labels, labels);
+        tagMatrixHeatmap.applyThemeColors(
+                ContextCompat.getColor(requireContext(), R.color.card),
+                ContextCompat.getColor(requireContext(), R.color.chart_purple),
+                ContextCompat.getColor(requireContext(), R.color.chart_amber),
+                ContextCompat.getColor(requireContext(), R.color.text_secondary));
     }
 
     private void renderTagAffinity(DataModels.Dataset dataset, List<Map.Entry<String, Integer>> topTags) {
@@ -1273,7 +1481,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
             return;
         }
         BarDataSet set = new BarDataSet(entries, "投稿数量");
-        set.setColor(ContextCompat.getColor(requireContext(), R.color.primary));
+        ChartStyler.horizontalGradient(set, requireContext(), 1);
         set.setDrawValues(false);
         structureChart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
         structureChart.getXAxis().setLabelCount(Math.max(2, labels.size()), false);

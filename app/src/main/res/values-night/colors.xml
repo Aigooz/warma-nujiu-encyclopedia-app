@@ -22,6 +22,16 @@
     <color name="purple">#A48CFF</color>
     <color name="chart_grid">#33AFC0C6</color>
     <color name="chart_accent_pink">#FF8FA6</color>
+    <!-- 图表调色盘：深色模式下整体提亮，保证在深底上的可辨识度。 -->
+    <color name="chart_pink">#FF8098</color>
+    <color name="chart_purple">#9D7BFF</color>
+    <color name="chart_blue">#56A8FF</color>
+    <color name="chart_mint">#4EE0B0</color>
+    <color name="chart_amber">#FFCA63</color>
+    <color name="chart_cyan">#64D8E8</color>
+    <color name="chart_rose">#FF9CC4</color>
+    <color name="chart_lime">#B4F0A8</color>
+    <color name="chart_lavender">#E3D6FF</color>
     <color name="weibo_image_bg">#232A2E</color>
     <color name="weibo_reply_bg">#1F2C2E</color>
     <!-- white 与 launcher_background 属固定用途（时长角标白字、图标底色），

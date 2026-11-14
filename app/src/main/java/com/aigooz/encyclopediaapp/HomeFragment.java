@@ -18,13 +18,14 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.bumptech.glide.Glide;
 import com.github.mikephil.charting.charts.BarChart;
-import com.github.mikephil.charting.components.XAxis;
 import com.github.mikephil.charting.data.BarData;
 import com.github.mikephil.charting.data.BarDataSet;
 import com.github.mikephil.charting.data.BarEntry;
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
+
+import com.aigooz.encyclopediaapp.chart.ChartStyler;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -82,26 +83,10 @@ public class HomeFragment extends Fragment implements DataRepository.Listener {
     }
 
     private void setupChart(BarChart chart) {
-        chart.getDescription().setEnabled(false);
-        chart.getLegend().setEnabled(false);
-        chart.setTouchEnabled(false);
-        chart.setDragEnabled(false);
-        chart.setScaleEnabled(false);
-        chart.setPinchZoom(false);
-        chart.setDrawGridBackground(false);
-        chart.getAxisRight().setEnabled(false);
-        chart.getAxisLeft().setDrawGridLines(false);
-        chart.getAxisLeft().setAxisMinimum(0f);
-        chart.getAxisLeft().setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary));
+        ChartStyler.bar(chart, requireContext());
         chart.getAxisLeft().setValueFormatter(new com.github.mikephil.charting.formatter.ValueFormatter() {
             @Override public String getFormattedValue(float value) { return UiUtils.number(requireContext(), value); }
         });
-        XAxis axis = chart.getXAxis();
-        axis.setPosition(XAxis.XAxisPosition.BOTTOM);
-        axis.setDrawGridLines(false);
-        axis.setGranularity(1f);
-        axis.setAvoidFirstLastClipping(true);
-        axis.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary));
     }
 
     @Override
@@ -216,7 +201,7 @@ public class HomeFragment extends Fragment implements DataRepository.Listener {
         }
         if (entries.isEmpty()) { yearlyChart.clear(); yearlyChart.setNoDataText("暂无年度弹幕数据"); return; }
         BarDataSet set = new BarDataSet(entries, "弹幕");
-        set.setColor(ContextCompat.getColor(requireContext(), R.color.blue));
+        ChartStyler.verticalGradient(set, requireContext(), 2);
         set.setDrawValues(false);
         yearlyChart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
         int count = Math.max(2, (int) (getResources().getConfiguration().screenWidthDp
