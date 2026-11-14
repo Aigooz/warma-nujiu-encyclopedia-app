@@ -32,6 +32,7 @@
     <color name="chart_rose">#FF9CC4</color>
     <color name="chart_lime">#B4F0A8</color>
     <color name="chart_lavender">#E3D6FF</color>
+    <color name="heatmap_empty">#232A30</color>
     <color name="weibo_image_bg">#232A2E</color>
     <color name="weibo_reply_bg">#1F2C2E</color>
     <!-- white 与 launcher_background 属固定用途（时长角标白字、图标底色），

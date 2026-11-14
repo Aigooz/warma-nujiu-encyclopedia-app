@@ -33,6 +33,8 @@
     <color name="chart_rose">#F765A3</color>
     <color name="chart_lime">#9EE493</color>
     <color name="chart_lavender">#D7C4FF</color>
+    <!-- 热力图空格子底色：略深于卡片白底，才能看出网格结构。 -->
+    <color name="heatmap_empty">#E7ECF0</color>
     <!-- 微博模块：配图占位与楼中楼底纹。 -->
     <color name="weibo_image_bg">#EDF1F2</color>
     <color name="weibo_reply_bg">#EAF2F2</color>

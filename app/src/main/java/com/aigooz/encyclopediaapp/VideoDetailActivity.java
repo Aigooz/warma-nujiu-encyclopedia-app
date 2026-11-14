@@ -1,7 +1,6 @@
 package com.aigooz.encyclopediaapp;
 
 import android.content.Intent;
-import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
@@ -278,13 +277,13 @@ public class VideoDetailActivity extends AppCompatActivity implements DataReposi
     }
 
     private void setupChart(LineChart chart, DataModels.Video video) {
-        chart.getDescription().setEnabled(false);
-        chart.getLegend().setEnabled(false);
+        com.aigooz.encyclopediaapp.chart.ChartStyler.line(chart, this);
         chart.setTouchEnabled(true);
         chart.setDragEnabled(false);
         chart.setScaleEnabled(false);
         chart.setPinchZoom(false);
         chart.setDoubleTapToZoomEnabled(false);
+        chart.getLegend().setEnabled(false);
         chart.setOnChartValueSelectedListener(new com.github.mikephil.charting.listener.OnChartValueSelectedListener() {
             @Override public void onValueSelected(Entry entry, com.github.mikephil.charting.highlight.Highlight highlight) {
                 android.widget.Toast.makeText(VideoDetailActivity.this,
@@ -292,16 +291,8 @@ public class VideoDetailActivity extends AppCompatActivity implements DataReposi
             }
             @Override public void onNothingSelected() {}
         });
-        chart.getAxisRight().setEnabled(false);
-        chart.getAxisLeft().setDrawGridLines(false);
-        chart.getAxisLeft().setAxisMinimum(0f);
         int textColor = androidx.core.content.ContextCompat.getColor(this, R.color.text_secondary);
-        chart.getAxisLeft().setTextColor(textColor);
         XAxis axis = chart.getXAxis();
-        axis.setPosition(XAxis.XAxisPosition.BOTTOM);
-        axis.setDrawGridLines(false);
-        axis.setTextColor(textColor);
-        axis.setAvoidFirstLastClipping(true);
         axis.setValueFormatter(new com.github.mikephil.charting.formatter.ValueFormatter() {
             @Override public String getFormattedValue(float value) { return UiUtils.timestamp(value); }
         });
@@ -318,10 +309,14 @@ public class VideoDetailActivity extends AppCompatActivity implements DataReposi
             return;
         }
         LineDataSet set = new LineDataSet(entries, "弹幕分布");
-        set.setColor(androidx.core.content.ContextCompat.getColor(this, R.color.primary));
+        set.setColor(com.aigooz.encyclopediaapp.chart.ChartPalette.color(this, 0));
         set.setLineWidth(2.5f);
-        set.setCircleColor(androidx.core.content.ContextCompat.getColor(this, R.color.chart_accent_pink));
+        set.setCircleColor(com.aigooz.encyclopediaapp.chart.ChartPalette.color(this, 0));
         set.setCircleRadius(2.5f);
+        set.setDrawCircleHole(false);
+        set.setDrawFilled(true);
+        set.setFillColor(com.aigooz.encyclopediaapp.chart.ChartPalette.color(this, 0));
+        set.setFillAlpha(40);
         set.setDrawValues(false);
         set.setMode(LineDataSet.Mode.CUBIC_BEZIER);
         chart.setData(new LineData(set));

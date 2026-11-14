@@ -84,9 +84,7 @@ public class HomeFragment extends Fragment implements DataRepository.Listener {
 
     private void setupChart(BarChart chart) {
         ChartStyler.bar(chart, requireContext());
-        chart.getAxisLeft().setValueFormatter(new com.github.mikephil.charting.formatter.ValueFormatter() {
-            @Override public String getFormattedValue(float value) { return UiUtils.number(requireContext(), value); }
-        });
+        chart.getAxisLeft().setValueFormatter(ChartStyler.compactNumber(requireContext()));
     }
 
     @Override

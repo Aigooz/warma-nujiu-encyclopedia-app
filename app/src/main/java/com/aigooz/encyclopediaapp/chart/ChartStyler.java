@@ -138,6 +138,10 @@ public final class ChartStyler {
         chart.setWebLineWidthInner(1f);
         chart.setWebColorInner(ContextCompat.getColor(context, R.color.chart_grid));
         chart.setWebAlpha(120);
+        // 手机端高度有限，把极坐标网格压扁一点、并留出轴标签空间，
+        // 否则 5 个多边形叠在一起会挤成一小团。
+        chart.setMinOffset(8f);
+        chart.setExtraOffsets(6f, 6f, 6f, 6f);
         chart.getYAxis().setDrawLabels(false);
         chart.getYAxis().setAxisMinimum(0f);
         chart.getYAxis().setDrawAxisLine(false);
@@ -145,8 +149,8 @@ public final class ChartStyler {
         chart.getXAxis().setTextColor(muted(context));
         chart.getXAxis().setTextSize(10f);
         chart.getXAxis().setDrawLabels(true);
-        chart.getLegend().setEnabled(true);
-        legend(chart, context);
+        // 雷达图在窄屏上内置图例会被折成多行、把图形挤扁，改由外部自绘图例承载。
+        chart.getLegend().setEnabled(false);
     }
 
     public static void legend(Chart<?> chart, Context context) {
@@ -188,7 +192,8 @@ public final class ChartStyler {
     public static ValueFormatter compactNumber(Context context) {
         return new ValueFormatter() {
             @Override public String getFormattedValue(float value) {
-                return UiUtils.number(context, value);
+                // 坐标轴/标签统一走 axisNumber：去掉「1200.0 万」这类无意义的尾数。
+                return UiUtils.axisNumber(context, value);
             }
         };
     }

@@ -660,6 +660,12 @@
                     android:layout_height="@dimen/chart_height"
                     android:padding="8dp" />
             </com.google.android.material.card.MaterialCardView>
+
+            <LinearLayout
+                android:id="@+id/radarLegend"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
         </LinearLayout>
 
         <LinearLayout

@@ -90,6 +90,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
     private com.github.mikephil.charting.charts.HorizontalBarChart structureChart;
     private com.github.mikephil.charting.charts.LineChart cumulativeChart;
     private com.github.mikephil.charting.charts.RadarChart radarChart;
+    private LinearLayout radarLegend;
     private View sectionWeibo;
     private TextView weiboSummary;
     private LinearLayout weiboList;
@@ -173,6 +174,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         structureChart = view.findViewById(R.id.structureChart);
         cumulativeChart = view.findViewById(R.id.cumulativeChart);
         radarChart = view.findViewById(R.id.radarChart);
+        radarLegend = view.findViewById(R.id.radarLegend);
         sectionWeibo = view.findViewById(R.id.sectionWeibo);
         weiboSummary = view.findViewById(R.id.weiboSummary);
         weiboList = view.findViewById(R.id.weiboList);
@@ -336,7 +338,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
     private com.github.mikephil.charting.formatter.ValueFormatter numberFormatter() {
         return new com.github.mikephil.charting.formatter.ValueFormatter() {
             @Override public String getFormattedValue(float value) {
-                return UiUtils.number(requireContext(), value);
+                return UiUtils.axisNumber(requireContext(), value);
             }
         };
     }
@@ -633,7 +635,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         int index = 0;
         for (Map.Entry<String, Integer> entry : bands.entrySet()) {
             entries.add(new BarEntry(index, entry.getValue()));
-            labels.add(entry.getKey() + " · " + entry.getValue());
+            labels.add(entry.getKey() + "  " + entry.getValue());
             index++;
         }
         BarDataSet set = new BarDataSet(entries, "间隔数量");
@@ -731,10 +733,13 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
             @Override public String getFormattedValue(float value) {
                 int position = (int) value;
                 if (position < 0 || position >= ordered.size()) return "";
-                return ordered.get(position).date;
+                // 完整日期在手机宽度下必然重叠，这里只显示「年-月」。
+                String date = ordered.get(position).date;
+                return date.length() >= 7 ? date.substring(0, 7) : date;
             }
         });
-        cumulativeChart.getXAxis().setLabelCount(axisLabelCount(5), false);
+        // 日期字符串较长，标签只保留 3 个，避免在手机宽度下相互重叠。
+        cumulativeChart.getXAxis().setLabelCount(3, false);
         cumulativeChart.setData(new LineData(lineSet, charSet));
         cumulativeChart.invalidate();
     }
@@ -773,6 +778,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         radarChart.getYAxis().setAxisMinimum(0f);
 
         RadarData data = new RadarData();
+        radarLegend.removeAllViews();
         int colorIndex = 0;
         for (Map.Entry<String, List<DataModels.Video>> entry : ranked) {
             List<DataModels.Video> group = entry.getValue();
@@ -801,6 +807,8 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
             set.setDrawValues(false);
             set.setDrawHighlightCircleEnabled(true);
             data.addDataSet(set);
+            radarLegend.addView(legendRow(entry.getKey() + " · " + group.size() + " 条",
+                    ChartPalette.color(requireContext(), colorIndex - 1)));
         }
         radarChart.setData(data);
         radarChart.invalidate();
@@ -811,6 +819,26 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         double total = 0;
         for (DataModels.Video video : group) total += lines ? video.sub_lines : video.sub_chars;
         return total / group.size();
+    }
+
+    /** 自绘图例行：左侧色块 + 右侧说明文字，饼图与雷达图共用。 */
+    private View legendRow(String text, int color) {
+        LinearLayout row = new LinearLayout(requireContext());
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        int spacing = (int) (8 * getResources().getDisplayMetrics().density);
+        row.setPadding(spacing, spacing / 2, spacing, spacing / 2);
+        View swatch = new View(requireContext());
+        swatch.setBackgroundColor(color);
+        row.addView(swatch, new LinearLayout.LayoutParams(spacing * 2, spacing * 2));
+        TextView label = new TextView(requireContext());
+        label.setText(text);
+        label.setTextColor(axisColor());
+        label.setTextSize(12f);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
+        params.setMarginStart(spacing);
+        row.addView(label, params);
+        return row;
     }
 
     /**
@@ -848,7 +876,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         }
         pubWeekdayHeatmap.setData(cells, rows, columns, visible);
         pubWeekdayHeatmap.applyThemeColors(
-                ContextCompat.getColor(requireContext(), R.color.card),
+                ContextCompat.getColor(requireContext(), R.color.heatmap_empty),
                 ContextCompat.getColor(requireContext(), R.color.chart_purple),
                 ContextCompat.getColor(requireContext(), R.color.chart_pink),
                 ContextCompat.getColor(requireContext(), R.color.text_secondary));
@@ -899,7 +927,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         // 日历有 52 列，行标签留白越窄越好，把宽度让给格子。
         calendarHeatmap.setRowLabelWidthDp(20f);
         calendarHeatmap.applyThemeColors(
-                ContextCompat.getColor(requireContext(), R.color.card),
+                ContextCompat.getColor(requireContext(), R.color.heatmap_empty),
                 ContextCompat.getColor(requireContext(), R.color.chart_purple),
                 ContextCompat.getColor(requireContext(), R.color.chart_amber),
                 ContextCompat.getColor(requireContext(), R.color.text_secondary));
@@ -986,7 +1014,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         for (Map.Entry<String, Double> entry : rankedTypes) {
             if (shown++ >= 6) break;
             typeEntries.add(new BarEntry(typeLabels.size(), entry.getValue().floatValue()));
-            typeLabels.add(entry.getKey() + " · " + UiUtils.number(requireContext(), entry.getValue()));
+            typeLabels.add(entry.getKey() + "  " + UiUtils.number(requireContext(), entry.getValue()));
         }
         BarDataSet typeSet = new BarDataSet(typeEntries, "类型播放");
         ChartStyler.horizontalGradient(typeSet, requireContext(), 6);
@@ -1179,7 +1207,7 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         }
         tagMatrixHeatmap.setData(cells, labels, labels);
         tagMatrixHeatmap.applyThemeColors(
-                ContextCompat.getColor(requireContext(), R.color.card),
+                ContextCompat.getColor(requireContext(), R.color.heatmap_empty),
                 ContextCompat.getColor(requireContext(), R.color.chart_purple),
                 ContextCompat.getColor(requireContext(), R.color.chart_amber),
                 ContextCompat.getColor(requireContext(), R.color.text_secondary));
@@ -1473,7 +1501,10 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         for (Map.Entry<String, Integer> entry : ranked) {
             if (shown++ >= 8) break;
             entries.add(new BarEntry(labels.size(), entry.getValue()));
-            labels.add(entry.getKey() + " · " + entry.getValue());
+            // 横向条图的数值放在类别轴标签里：手机端没有悬停提示，柱端数值又会与顶部刻度撞车。
+            // 同时把「2015–2019」压缩成「2015s」，缩短左轴留白、把宽度让给柱子。
+            String text = entry.getKey().replaceAll("(\\d{4})–\\d{4}", "$1s");
+            labels.add(text + "  " + entry.getValue());
         }
         if (entries.isEmpty()) {
             structureChart.clear();
@@ -1731,4 +1762,5 @@ public class RankingsFragment extends Fragment implements DataRepository.Listene
         }
     }
 }
+
 

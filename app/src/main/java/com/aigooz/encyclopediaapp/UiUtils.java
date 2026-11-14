@@ -13,6 +13,27 @@ public final class UiUtils {
         return String.valueOf((long) value);
     }
 
+    /**
+     * 坐标轴刻度专用格式：去掉没有信息量的尾数。
+     *
+     * 坐标轴常常落在 12000000 这种整刻度上，用 {@link #number} 会显示成
+     * 「1200.0 万」「1.00 亿」，既占宽度又不好读。这里在保留一位小数的前提下，
+     * 把末尾的 0 和小数点去掉，得到「1200 万」「1 亿」。
+     */
+    public static String axisNumber(Context context, double value) {
+        if (value >= 100_000_000) return trim(value / 100_000_000D, 2) + " 亿";
+        if (value >= 10_000) return trim(value / 10_000D, 1) + " 万";
+        return trim(value, 0);
+    }
+
+    private static String trim(double value, int decimals) {
+        String text = String.format(Locale.CHINA, "%." + decimals + "f", value);
+        if (text.contains(".")) {
+            text = text.replaceAll("0+$", "").replaceAll("\\.$", "");
+        }
+        return text;
+    }
+
     public static String percent(double value) {
         return String.format(Locale.CHINA, "%.1f%%", value);
     }
